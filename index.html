@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Heartstorm</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff3a9e' d='M12 21C3 14 4 5 8.500 5c1.800 0 3 1.200 3.500 2.500C12.500 6.200 13.700 5 15.500 5 20 5 21 14 12 21z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <!-- in-run HUD -->
+  <div id="hud" class="hidden">
+    <div id="xpbar"><div id="xpfill"></div></div>
+    <div class="hud-top">
+      <div class="hud-left">
+        <div id="hearts"></div>
+        <div class="lvl">LV <b id="level">1</b></div>
+      </div>
+      <div class="hud-center">
+        <div id="wave">WAVE 1</div>
+        <div id="waveprog"><div id="wavefill"></div></div>
+        <div id="boss" class="hidden"><div id="bossname"></div><div id="bossbar"><div id="bossfill"></div></div></div>
+      </div>
+      <div class="hud-right">
+        <div id="score">0</div>
+        <div id="combo"></div>
+        <div id="clock">0:00</div>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div class="abilities">
+        <div class="ability" id="ab-dash"><div class="key">SPACE</div><div class="pips" id="dashpips"></div><div class="label">DASH</div></div>
+        <div class="ability" id="ab-bomb"><div class="key">RMB</div><div class="meter"><div id="bombfill"></div></div><div class="label">LOVE BOMB</div></div>
+      </div>
+      <div id="skills"></div>
+    </div>
+    <div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+    <div id="fps" class="hidden"></div>
+  </div>
+
+  <!-- title -->
+  <section id="screen-title" class="screen">
+    <div class="logo">
+      <div class="logo-main"><span class="ily">ILY</span> <span class="hind">HIND</span></div>
+    </div>
+    <div class="menu">
+      <button class="btn primary" id="btn-play">PLAY</button>
+      <button class="btn" id="btn-how">HOW TO PLAY</button>
+      <button class="btn" id="btn-codex">FUSION CODEX</button>
+      <button class="btn" id="btn-settings">SETTINGS</button>
+    </div>
+    <div id="best"></div>
+  </section>
+
+  <!-- level up -->
+  <section id="screen-levelup" class="screen hidden">
+    <h2 id="lu-title">LEVEL UP</h2>
+    <div id="lu-sub">Choose an upgrade</div>
+    <div id="cards"></div>
+    <button class="btn small" id="btn-reroll">REROLL <kbd>R</kbd></button>
+  </section>
+
+  <!-- pause -->
+  <section id="screen-pause" class="screen hidden">
+    <h2>PAUSED</h2>
+    <div class="pause-cols">
+      <div class="panel"><h3>YOUR BUILD</h3><div id="build"></div></div>
+      <div class="panel"><h3>SETTINGS</h3><div class="settings-slot"></div></div>
+    </div>
+    <div class="menu row">
+      <button class="btn primary" id="btn-resume">RESUME</button>
+      <button class="btn" id="btn-pause-codex">CODEX</button>
+      <button class="btn" id="btn-restart">RESTART</button>
+      <button class="btn" id="btn-quit">QUIT</button>
+    </div>
+  </section>
+
+  <!-- game over / victory -->
+  <section id="screen-over" class="screen hidden">
+    <h2 id="over-title">HEARTBROKEN</h2>
+    <div id="over-sub"></div>
+    <div id="over-stats" class="stats"></div>
+    <div id="over-build" class="buildrow"></div>
+    <div class="menu row">
+      <button class="btn primary" id="btn-again">TRY AGAIN</button>
+      <button class="btn hidden" id="btn-endless">CONTINUE: ENDLESS</button>
+      <button class="btn" id="btn-title">TITLE</button>
+    </div>
+  </section>
+
+  <!-- modal panels -->
+  <section id="screen-how" class="screen modal hidden">
+    <div class="panel wide">
+      <h3>HOW TO PLAY</h3>
+      <div class="how">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div>Move your heart</div>
+        <div><kbd>MOUSE</kbd></div><div>Aim. Hold <kbd>LMB</kbd> to fire, <kbd>F</kbd> toggles auto-fire</div>
+        <div><kbd>SPACE</kbd> / <kbd>SHIFT</kbd></div><div>Dash. You cannot be hurt mid-dash</div>
+        <div><kbd>RMB</kbd> / <kbd>E</kbd></div><div>Love Bomb, once the meter is full. Erases bullets</div>
+        <div><kbd>ESC</kbd> / <kbd>P</kbd></div><div>Pause, see your build and the codex</div>
+        <div><kbd>M</kbd></div><div>Mute</div>
+      </div>
+      <p>Destroy the Heartless, collect the shards they drop and choose an upgrade each level.
+      Every skill has a partner: <b>max out both</b> and they fuse into something new.
+      Survive 20 waves across 4 sectors. A boss guards the end of each.</p>
+      <button class="btn primary close">GOT IT</button>
+    </div>
+  </section>
+  <section id="screen-codex" class="screen modal hidden">
+    <div class="panel wide">
+      <h3>FUSION CODEX</h3>
+      <div id="codex"></div>
+      <button class="btn primary close">CLOSE</button>
+    </div>
+  </section>
+  <section id="screen-settings" class="screen modal hidden">
+    <div class="panel">
+      <h3>SETTINGS</h3>
+      <div class="settings-slot"></div>
+      <button class="btn primary close">CLOSE</button>
+    </div>
+  </section>
+
+  <pre id="err" class="hidden"></pre>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
