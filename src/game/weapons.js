@@ -3,9 +3,10 @@
 
 import { ARENA, COL } from '../config.js';
 import { TAU, turnToward, segDist2 } from '../core/math.js';
-import { igniteEnemy, chillEnemy, charmEnemy } from './status.js';
+import { igniteEnemy, chillEnemy, charmEnemy, envyEnemy, tieEnemy, tiedTo } from './status.js';
 
 const CRIT = { crit: true };
+const SURE_CRIT = { crit: true, sure: true };   // beat volleys
 const QUIET = { quiet: true };
 const MAX_PROJ = 1400;
 
@@ -17,15 +18,15 @@ export function spawnProj(g, x, y, ang, o) {
     x, y, ang, spd, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
     life: o.life ?? st.projLife, dmg: o.dmg, r: o.r ?? 10, kind: o.kind ?? 'heart',
     pierce: o.pierce ?? st.pierce, bounce: o.bounce ?? st.bounce, homing: o.homing ?? st.homing,
-    canSplit: o.canSplit ?? st.split > 0, gen: o.gen ?? 0, coef: o.coef ?? 1, chill: o.chill || 0,
+    canSplit: o.canSplit ?? st.split > 0, gen: o.gen ?? 0, coef: o.coef ?? 1, chill: o.chill || 0, beat: !!o.beat,
     hits: o.hits || [], tgt: null, tgtT: 0, t: 0, dead: false,
   };
   g.projs.push(p);
   return p;
 }
 
-export function volleyAngles(g) {
-  const n = g.stats.multishot;
+export function volleyAngles(g, extra = 0) {
+  const n = g.stats.multishot + extra;
   const spread = Math.min(0.12 * (n - 1), 0.66);
   const out = [];
   for (let i = 0; i < n; i++) out.push(n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
@@ -34,6 +35,13 @@ export function volleyAngles(g) {
 
 export function fireVolley(g) {
   const p = g.player, st = g.stats;
+  const onBeat = st.beat > 0 && p.beatReady;
+  if (onBeat) {
+    p.beatReady = false;
+    beatVolley(g);
+    if (st.fus.encore) g.delayed.push({ t: 0.09, fn: () => { if (!g.player.dead) beatVolley(g); } });
+    return;
+  }
   const dmg = st.damage * st.shotMul;
   const ox = p.x + Math.cos(p.ang) * 22, oy = p.y + Math.sin(p.ang) * 22;
   for (const a of volleyAngles(g)) spawnProj(g, ox, oy, p.ang + a, { dmg });
@@ -43,6 +51,17 @@ export function fireVolley(g) {
     }
   }
   g.fx.spray(ox, oy, p.ang, 0.7, COL.rose, 3, 320, 0.2, 3);
+  g.audio.play('shoot');
+}
+
+/** On the Beat: bigger hearts that always crit. */
+function beatVolley(g) {
+  const p = g.player, st = g.stats;
+  const o = { dmg: st.damage * st.shotMul * (1 + 0.2 * st.beat), beat: true, r: 13 };
+  const ox = p.x + Math.cos(p.ang) * 22, oy = p.y + Math.sin(p.ang) * 22;
+  for (const a of volleyAngles(g, st.beat >= 3 ? 1 : 0)) spawnProj(g, ox, oy, p.ang + a, o);
+  g.fx.ring(p.x, p.y, COL.gold, 18, 46, 0.22, 2);
+  g.fx.spray(ox, oy, p.ang, 0.9, COL.gold, 6, 380, 0.25, 4);
   g.audio.play('shoot');
 }
 
@@ -57,7 +76,7 @@ function spawnHalves(g, p, e) {
 }
 
 /** Arc lightning from an enemy to its neighbours. */
-function chainFrom(g, e, dmg) {
+export function chainFrom(g, e, dmg) {
   const st = g.stats;
   const skip = [e.id];
   let from = e;
@@ -68,6 +87,10 @@ function chainFrom(g, e, dmg) {
     g.fx.lightning(from.x, from.y, t.x, t.y, COL.ice);
     g.damageEnemy(t, dmg, QUIET);
     if (st.fus.absolutezero && !t.dead) chillEnemy(g, t, 0.5);
+    if (st.fus.wildfire && !t.dead) {              // Wildfire: arcs carry the flames
+      const dps = st.damage * Math.max(0.5, st.burn);
+      igniteEnemy(g, t, dps); igniteEnemy(g, t, dps);
+    }
     from = t;
   }
   if (skip.length > 1) g.audio.play('zap');
@@ -83,6 +106,15 @@ export function applyHitEffects(g, e, dmg, coef, p) {
     if (st.burn > 0) igniteEnemy(g, e, st.damage * st.burn);
     const ch = st.chill + (p ? p.chill : 0);
     if (ch > 0) chillEnemy(g, e, ch * Math.max(coef, 0.35));
+    if (st.envy > 0) envyEnemy(g, e, 1);
+    if (st.strings > 0) tieEnemy(g, e);
+    // Soulmates: whatever one feels, so does the other
+    const m = st.fus.soulmates ? tiedTo(e) : null;
+    if (m && !e.dead) {
+      if (e.burnT > 0) igniteEnemy(g, m, e.burn);
+      if (ch > 0) chillEnemy(g, m, ch * 0.5);
+      if (e.envy > (m.envy || 0)) { m.envy = e.envy; m.envyT = 4; }
+    }
     if (st.charm > 0 && rng.chance(st.charm * coef)) charmEnemy(g, e);
   }
   if (st.explodeR > 0 && (coef >= 1 || rng.chance(coef))) {
@@ -93,7 +125,7 @@ export function applyHitEffects(g, e, dmg, coef, p) {
 
 function onHit(g, p, e) {
   const st = g.stats;
-  g.damageEnemy(e, p.dmg, CRIT);
+  g.damageEnemy(e, p.dmg, p.beat ? SURE_CRIT : CRIT);
   p.hits.push(e.id);
   if (p.hits.length > 10) p.hits.shift();
   applyHitEffects(g, e, p.dmg, p.coef, p);
@@ -185,16 +217,25 @@ export function updateBeams(g, firing, dt) {
   if (tick) p.beamTick += 0.1;
   const dps = st.damage * st.shotMul * st.fireRate * 1.25;
   const len = 920;
+  // On the Beat with Love Beam: every beat the beam surges for a guaranteed crit
+  const surge = st.beat > 0 && p.beatReady;
+  if (surge) p.beatReady = false;
   for (const a of volleyAngles(g)) {
     const ang = p.ang + a;
     const x1 = p.x + Math.cos(ang) * 22, y1 = p.y + Math.sin(ang) * 22;
     const x2 = x1 + Math.cos(ang) * len, y2 = y1 + Math.sin(ang) * len;
     g.beams.push({ x1, y1, x2, y2 });
-    if (!tick) continue;
+    if (surge) g.flashBeams.push({ x1, y1, x2, y2, t: 0.22, max: 0.22 });
+    if (!tick && !surge) continue;
     for (const e of g.enemies) {
       if (!g.hittable(e)) continue;
       const rr = e.r + 9;
       if (segDist2(e.x, e.y, x1, y1, x2, y2) > rr * rr) continue;
+      if (surge) {
+        const n = st.fus.encore ? 2 : 1;
+        for (let k = 0; k < n && !e.dead; k++) g.damageEnemy(e, st.damage * st.shotMul * (1 + 0.2 * st.beat) * 1.5, SURE_CRIT);
+        if (!tick || e.dead) continue;
+      }
       g.damageEnemy(e, dps * 0.1, CRIT);
       applyHitEffects(g, e, dps * 0.25, 0.28, null);
       g.fx.mote(e.x, e.y, COL.pink, 0.7, 4, 0.3, 200, 0);

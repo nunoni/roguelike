@@ -1,6 +1,6 @@
 // In-run HUD. Polls the game each frame and only touches the DOM when a value changes.
 
-import { SKILLS, FUSIONS, FUSION_OF } from '../game/upgrades.js';
+import { SKILLS, FUSIONS, usedSkills } from '../game/upgrades.js';
 import { WAVES_PER_SECTOR } from '../config.js';
 import { icon, heartSvg } from './icons.js';
 
@@ -9,14 +9,14 @@ const $ = (id) => document.getElementById(id);
 /** Small skill tiles; shared by the HUD and the results screen. */
 export function buildTiles(g) {
   let html = '';
+  const used = usedSkills(g.fusions);
   for (const f of FUSIONS) {
     if (g.fusions[f.id]) html += `<div class="skill cat-fusion" title="${f.name}">${icon(f.id)}</div>`;
   }
   for (const s of SKILLS) {
     const lv = g.levels[s.id] || 0;
     if (!lv) continue;
-    const f = FUSION_OF[s.id];
-    if (f && g.fusions[f.id]) continue;          // folded into its fusion
+    if (used.has(s.id)) continue;                // folded into its fusion
     let pips = '';
     for (let i = 0; i < s.max; i++) pips += `<i class="${i < lv ? 'on' : ''}"></i>`;
     html += `<div class="skill cat-${s.cat}${lv >= s.max ? ' maxed' : ''}" title="${s.name}">${icon(s.id)}<div class="lv">${pips}</div></div>`;

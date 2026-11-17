@@ -1,7 +1,8 @@
 // Generative synthwave loop. A look-ahead scheduler lays down kick, hats, bass,
 // pad and an arpeggio; `intensity` (0..3) decides which layers play.
 
-const BPM = 112;
+import { BPM } from '../config.js';
+
 const STEP = 60 / BPM / 4;            // sixteenth note
 // i - VI - III - VII in A minor, as semitone offsets from A
 const CHORDS = [

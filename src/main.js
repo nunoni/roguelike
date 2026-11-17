@@ -109,6 +109,14 @@ function boot() {
       for (const s of SKILLS) game.levels[s.id] = Math.floor(s.max / 2);
       game.setStats();
     }
+    if (params.has('skills') || params.has('fus')) {   // dev: e.g. ?skills=beat,flutter&fus=ballroom
+      for (const id of (params.get('skills') || '').split(',')) {
+        const s = SKILLS.find((k) => k.id === id);
+        if (s) game.levels[id] = s.max;
+      }
+      for (const id of (params.get('fus') || '').split(',')) if (FUSIONS.some((f) => f.id === id)) game.fusions[id] = true;
+      game.setStats();
+    }
     if (params.has('wave')) { game.waves.n = Number(params.get('wave')) - 1; game.waves.timer = 0.5; }
     if (params.has('stress')) {
       for (let i = 0; i < 400; i++) spawnEnemy(game, ['drifter', 'mote', 'spitter', 'splitter'][i % 4], (Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 2000, {});

@@ -5,6 +5,9 @@ export const TITLE = 'NEON HEARTSTORM';
 export const VIEW_H = 920;                     // world units visible vertically
 export const ARENA = { hw: 1700, hh: 1150 };   // arena half extents
 
+/** Music tempo; the simulation's beat clock (On the Beat, ship pulse) shares it. */
+export const BPM = 112;
+
 export const COL = {
   pink: [1.0, 0.22, 0.62],
   hot: [1.0, 0.12, 0.38],

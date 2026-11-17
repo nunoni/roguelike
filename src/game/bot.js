@@ -2,7 +2,7 @@
 // test runs; it is not meant to play well, only plausibly.
 
 import { ARENA } from '../config.js';
-import { SKILL_BY_ID, FUSION_OF } from './upgrades.js';
+import { SKILL_BY_ID, RECIPES_OF, otherOf, usedSkills } from './upgrades.js';
 
 export function botInput(g) {
   const p = g.player;
@@ -85,12 +85,14 @@ export function botChoose(g) {
     else if (c.kind === 'skill') {
       const lv = L[c.id] || 0;
       if (lv > 0) s += 4 + lv;
-      const f = FUSION_OF[c.id];
-      if (f) {
-        const other = f.from[0] === c.id ? f.from[1] : f.from[0];
-        if ((L[other] || 0) > 0) s += 3 + (L[other] || 0);
-        if ((L[other] || 0) >= SKILL_BY_ID[other].max) s += 5;
+      const used = usedSkills(g.fusions);
+      let best = 0;
+      for (const f of RECIPES_OF[c.id] || []) {
+        const other = otherOf(f, c.id), ol = L[other] || 0;
+        if (g.fusions[f.id] || used.has(other) || !ol) continue;
+        best = Math.max(best, 3 + ol + (ol >= SKILL_BY_ID[other].max ? 5 : 0));
       }
+      s += best;
       if (c.id === 'hp' && g.player.hp <= 2) s += 6;
     }
     if (s > score) { score = s; best = i; }

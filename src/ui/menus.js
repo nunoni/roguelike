@@ -1,6 +1,6 @@
 // Screens: title, level-up cards, pause, results, codex, settings.
 
-import { SKILLS, FUSIONS, SKILL_BY_ID, FUSION_OF, describeChoice } from '../game/upgrades.js';
+import { SKILLS, FUSIONS, SKILL_BY_ID, usedSkills, describeChoice } from '../game/upgrades.js';
 import { icon } from './icons.js';
 import { buildTiles } from './hud.js';
 
@@ -80,9 +80,10 @@ export class Menus {
       el.className = `card cat-${d.cat}`;
       let pips = '';
       for (let k = 0; k < d.max; k++) pips += `<i class="${k < d.level ? 'on' : ''}"></i>`;
-      const fuse = d.fuse
+      const fuse = (d.fuse
         ? `<div class="fuse${d.fuse.ready ? ' ready' : ''}">+ ${d.fuse.partner} → ${d.fuse.result}</div>`
-        : '<div class="fuse"></div>';
+        : '<div class="fuse"></div>') +
+        (d.also && d.also.length ? `<div class="also">also fuses with ${d.also.join(', ')}</div>` : '');
       el.innerHTML = `<div class="num">${i + 1}</div><div class="tag">${d.tag}</div>${icon(d.icon, 74)}
         <div class="name">${d.title}</div><div class="desc">${d.desc}</div><div class="detail">${d.detail}</div>
         <div class="pips">${pips}</div>${d.cat === 'fusion' ? '<div class="fuse"></div>' : fuse}`;
@@ -99,13 +100,13 @@ export class Menus {
   pause(g) {
     this.show('pause');
     let html = '';
+    const used = usedSkills(g.fusions);
     for (const f of FUSIONS) {
       if (g.fusions[f.id]) html += `<div class="buildline cat-fusion">${icon(f.id, 20)}<span>${f.name}</span><em>FUSED</em></div>`;
     }
     for (const s of SKILLS) {
       const lv = g.levels[s.id] || 0;
-      const f = FUSION_OF[s.id];
-      if (!lv || (f && g.fusions[f.id])) continue;
+      if (!lv || used.has(s.id)) continue;
       html += `<div class="buildline cat-${s.cat}">${icon(s.id, 20)}<span>${s.name}</span><em>${lv}/${s.max}</em></div>`;
     }
     $('build').innerHTML = html || '<div class="empty-note">No upgrades yet.</div>';
@@ -131,17 +132,21 @@ export class Menus {
   // ---- codex ----------------------------------------------------------------
   renderCodex() {
     const found = new Set(this.app.save.codex);
-    let html = '';
-    for (const f of FUSIONS) {
+    const recipe = (f) => {
       const [a, b] = f.from.map((id) => SKILL_BY_ID[id]);
       const ok = found.has(f.id);
-      html += `<div class="recipe ${ok ? 'found' : 'locked'}">
+      return `<div class="recipe ${ok ? 'found' : 'locked'}">
         <div class="row"><span class="cat-${a.cat}">${icon(a.id, 20)}</span>${a.name}<span class="plus">+</span><span class="cat-${b.cat}">${icon(b.id, 20)}</span>${b.name}</div>
         <div class="res">${ok ? `<span class="cat-fusion">${icon(f.id, 28)}</span>${f.name}` : '? ? ?'}</div>
         <div class="rdesc">${ok ? f.desc : 'Max out both skills in one run to discover this fusion.'}</div>
       </div>`;
-    }
-    $('codex').innerHTML = html;
+    };
+    const pairs = FUSIONS.filter((f) => f.type === 'pair'), cross = FUSIONS.filter((f) => f.type === 'cross');
+    const count = (list) => `${list.filter((f) => found.has(f.id)).length}/${list.length}`;
+    $('codex').innerHTML =
+      `<h4 class="codex-head">SIGNATURE FUSIONS <span>${count(pairs)}</span></h4>${pairs.map(recipe).join('')}` +
+      `<h4 class="codex-head">CROSS FUSIONS <span>${count(cross)}</span></h4>` +
+      `<p class="codex-note">A skill can only be spent on one fusion per run.</p>${cross.map(recipe).join('')}`;
   }
 
   // ---- settings -------------------------------------------------------------

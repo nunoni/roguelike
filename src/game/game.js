@@ -1,7 +1,7 @@
 // One run of the game. Owns all simulation state; knows nothing about WebGL or
 // the DOM. Visuals and sound go through the injected ctx ({ fx, audio, ui }).
 
-import { ARENA, COL, PLAYER, FINAL_WAVE, WAVES_PER_SECTOR, SECTORS, xpForLevel } from '../config.js';
+import { ARENA, COL, PLAYER, FINAL_WAVE, WAVES_PER_SECTOR, SECTORS, BPM, xpForLevel } from '../config.js';
 import { Rng } from '../core/rng.js';
 import { Grid } from '../core/spatial.js';
 import { clamp, compact, damp, segDist2, TAU } from '../core/math.js';
@@ -9,13 +9,14 @@ import { computeStats, rollChoices, FUSION_BY_ID } from './upgrades.js';
 import { makePlayer, updatePlayer } from './player.js';
 import { updateEnemies } from './enemies.js';
 import './bosses.js';
-import { updateProjectiles, spawnProj } from './weapons.js';
+import { updateProjectiles, spawnProj, chainFrom } from './weapons.js';
 import { updateSpells } from './spells.js';
-import { igniteEnemy } from './status.js';
+import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
 import { Waves } from './waves.js';
 
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
+const SHARED = { quiet: true, shared: true };
 export { CRIT, QUIET };
 
 export class Game {
@@ -46,6 +47,10 @@ export class Game {
     this.zones = [];
     this.lasers = [];
     this.drones = [];
+    this.butterflies = [];
+    this.lastHit = null;    // Heartstrings ties new hits to this enemy
+    this.beatN = 0;         // beat clock, shared with the ship's pulse and the music tempo
+    this.onBeat = false;    // true on the frame a new beat starts
     this.beams = [];        // player's continuous beams, rebuilt each frame
     this.flashBeams = [];   // short-lived player beam flashes (Pulsar)
     this.orbitals = [];
@@ -93,6 +98,10 @@ export class Game {
     const dt = realDt * this.timeScale;
     this.time += dt;
     this.frame++;
+    const bn = Math.floor(this.time * BPM / 60);
+    this.onBeat = bn !== this.beatN;
+    this.beatN = bn;
+    if (this.onBeat) this.player.beatReady = true;
 
     const grid = this.grid;
     grid.clear();
@@ -244,9 +253,15 @@ export class Game {
       return e.transfer.dead ? 0 : this.damageEnemy(e.transfer, dmg * 0.3, o);
     }
     const st = this.stats;
+    const base = dmg;
     let crit = false;
-    if (o && o.crit && this.rng.chance(st.crit)) { dmg *= st.critMul; crit = true; }
+    if (o && o.crit && (o.sure || this.rng.chance(st.crit))) {
+      dmg *= st.critMul;
+      crit = true;
+      if (st.fus.heartache && e.envy > 0) dmg *= 1.25;
+    }
     if (e.frozen > 0 && st.fus.absolutezero) dmg *= 1.5;
+    if (e.envy > 0) dmg *= 1 + st.envy * e.envy;
     dmg *= this.dmgMul;
     e.hp -= dmg;
     e.flash = 1;
@@ -260,7 +275,14 @@ export class Game {
       const x = e.x, y = e.y;
       this.delayed.push({ t: 0.05, fn: () => this.explode(x, y, 95, st.damage * 1.5, { col: COL.gold }) });
     }
+    if (crit && !e.dead) {
+      if (st.fus.heartache) envyEnemy(this, e, 3);
+      if (st.fus.thunderstruck) chainFrom(this, e, base);
+    }
+    // Heartstrings: the tied partner feels part of every hit (never passed on again)
+    const tie = st.strings > 0 && !(o && o.shared) ? tiedTo(e) : null;
     if (e.hp <= 0) this.killEnemy(e);
+    if (tie) this.damageEnemy(tie, base * (crit ? st.critMul : 1) * st.strings, SHARED);
     return dmg;
   }
 
@@ -287,10 +309,21 @@ export class Game {
     if (e.elite === 'volatile') this.zones.push({ kind: 'blast', x: e.x, y: e.y, r: 150, t: 0, dur: 0.85, tick: 0 });
 
     const x = e.x, y = e.y;
+    const mate = st.fus.soulmates ? tiedTo(e) : null;
+    if (mate) {                                   // Soulmates: heartbreak for the one left behind
+      const m = mate;
+      this.fx.lightning(x, y, m.x, m.y, COL.rose);
+      this.delayed.push({ t: 0.06, fn: () => {
+        if (m.dead) return;
+        this.fx.burst(m.x, m.y, COL.rose, 14, 300, 0.5, 5, 1);
+        this.damageEnemy(m, st.damage * 5, SHARED);
+      } });
+    }
     if (st.fus.supernova && e.burnT > 0) {
+      const stacks = e.burnStacks || 1;           // hotter fires, bigger bangs
       this.delayed.push({
         t: 0.09, fn: () => {
-          this.explode(x, y, 125, st.damage * 2.4, { col: COL.orange, burn: true });
+          this.explode(x, y, 125 + 4 * stacks, st.damage * (2.2 + 0.2 * stacks), { col: COL.orange, burn: true });
           if (this.zones.length < 90) this.zones.push({ kind: 'fire', x, y, r: 70, t: 0, dur: 2.4, tick: 0 });
         },
       });
@@ -488,6 +521,12 @@ export class Game {
           if (z.t >= z.dur) {
             z.dead = true;
             this.explode(z.x, z.y, z.r, z.dmg, { col: COL.gold });
+            if (st.fus.starburst) {                // Starburst: a ring of hearts
+              const a0 = this.rng.angle();
+              for (let k = 0; k < 8; k++) {
+                spawnProj(this, z.x, z.y, a0 + (k / 8) * TAU, { dmg: st.damage * 0.8, kind: 'mini', r: 7, spd: 820, life: 0.55, pierce: 1, bounce: 0, canSplit: false, coef: 0.5, homing: 0 });
+              }
+            }
           }
           break;
         case 'well': {
@@ -517,6 +556,12 @@ export class Game {
           }
           if (z.t >= z.dur) {
             z.dead = true;
+            if (st.fus.singularity) {              // Singularity: stars rain into the collapse
+              for (let k = 0; k < 5; k++) {
+                const a = this.rng.angle(), d = this.rng.range(0, z.r * 0.45);
+                this.zones.push({ kind: 'meteor', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d, r: 95, t: -k * 0.12, dur: 0.45, tick: 0, dmg: st.damage * (2 + 0.6 * st.stars) });
+              }
+            }
             if (st.fus.eventhorizon) {
               this.explode(z.x, z.y, z.r * 0.95, st.damage * 7, { col: COL.violet, knock: 300 });
               this.fx.shock(z.x, z.y, 1.4, z.r * 3.5, 0.7);

@@ -3,6 +3,7 @@
 import { ARENA, COL, PLAYER } from '../config.js';
 import { clamp, damp } from '../core/math.js';
 import { fireVolley, updateBeams, spawnProj } from './weapons.js';
+import { firePulse } from './spells.js';
 
 export function makePlayer(stats) {
   return {
@@ -12,7 +13,7 @@ export function makePlayer(stats) {
     dashT: 0, dashDx: 0, dashDy: 0, dashCharges: stats.dashCharges, dashCdT: 0, dashHits: null, afterT: 0,
     shield: false, shieldInit: false, shieldT: 0,
     slow: 0, slowNext: 0, pullX: 0, pullY: 0,
-    trailT: 0, ringT: 0, dead: false, aimX: 0, aimY: -100,
+    trailT: 0, ringT: 0, dead: false, aimX: 0, aimY: -100, beatReady: false,
   };
 }
 
@@ -77,6 +78,7 @@ export function updatePlayer(g, input, dt) {
     if (p.dashT <= 0) {
       p.vx *= 0.3; p.vy *= 0.3;
       if (st.fus.comet) g.explode(p.x, p.y, 170, st.damage * 4, { col: COL.gold, knock: 380 });
+      if (st.fus.skipping) firePulse(g, p.x, p.y);   // Skipping Heart
     }
   } else {
     const sp = st.speed * (1 - p.slow);

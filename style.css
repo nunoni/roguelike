@@ -149,6 +149,7 @@ h3 { margin: 0 0 14px; font-size: 14px; letter-spacing: 0.3em; color: var(--cyan
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; min-width: 320px; max-width: 92vw; max-height: 80vh; overflow: auto; text-align: left; pointer-events: auto; }
 .panel.wide { width: min(900px, 92vw); }
+.panel { scrollbar-width: thin; scrollbar-color: rgba(255, 58, 158, 0.45) transparent; }
 .panel p { line-height: 1.6; opacity: 0.85; font-size: 14px; letter-spacing: 0.03em; }
 .panel .close { display: block; margin: 18px auto 0; }
 .how { display: grid; grid-template-columns: auto 1fr; gap: 10px 22px; align-items: center; font-size: 14px; letter-spacing: 0.04em; }
@@ -178,6 +179,7 @@ h3 { margin: 0 0 14px; font-size: 14px; letter-spacing: 0.3em; color: var(--cyan
 .card .pips i.on { background: currentColor; box-shadow: 0 0 8px currentColor; }
 .card .fuse { font-size: 10.500px; letter-spacing: 0.06em; color: var(--gold); opacity: 0.85; min-height: 14px; }
 .card .fuse.ready { opacity: 1; text-shadow: 0 0 10px var(--gold); font-weight: 700; }
+.card .also { font-size: 10px; letter-spacing: 0.04em; color: var(--gold); opacity: 0.6; margin-top: -6px; line-height: 1.35; }
 .card .num { position: absolute; top: 10px; left: 12px; font: 11px var(--mono); opacity: 0.45; color: #fff; }
 .card.cat-fusion {
   border-width: 2px; background: linear-gradient(180deg, rgba(52, 38, 10, 0.95), rgba(16, 8, 26, 0.96));
@@ -219,6 +221,10 @@ h3 { margin: 0 0 14px; font-size: 14px; letter-spacing: 0.3em; color: var(--cyan
 .recipe .rdesc { margin-top: 6px; font-size: 12px; line-height: 1.45; opacity: 0.8; letter-spacing: 0.02em; }
 .recipe.locked .res { color: rgba(255, 255, 255, 0.35); }
 .recipe.found { border-color: rgba(255, 214, 77, 0.5); box-shadow: 0 0 14px -4px var(--gold); }
+.codex-head { grid-column: 1 / -1; margin: 14px 0 0; font-size: 12px; letter-spacing: 0.3em; color: var(--gold); }
+.codex-head:first-child { margin-top: 0; }
+.codex-head span { font-family: var(--mono); opacity: 0.6; margin-left: 8px; letter-spacing: 0.05em; }
+.codex-note { grid-column: 1 / -1; margin: -4px 0 2px; font-size: 12px !important; opacity: 0.6 !important; }
 
 #err { position: absolute; left: 12px; bottom: 12px; right: 12px; max-height: 40vh; overflow: auto; margin: 0; padding: 12px; background: rgba(60, 0, 10, 0.92); border: 1px solid #f66; border-radius: 8px; color: #ffd0d0; font: 12px var(--mono); white-space: pre-wrap; pointer-events: auto; z-index: 10; user-select: text; }
 

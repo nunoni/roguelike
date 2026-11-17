@@ -1,6 +1,6 @@
 // Turns simulation state into shape instances. Read-only with respect to the game.
 
-import { COL, PLAYER } from '../config.js';
+import { COL, PLAYER, BPM } from '../config.js';
 import { TAU, clamp } from '../core/math.js';
 
 const S = [0, 0, 0];
@@ -8,8 +8,9 @@ function tint(c, w, k) {
   S[0] = c[0] + (w[0] - c[0]) * k; S[1] = c[1] + (w[1] - c[1]) * k; S[2] = c[2] + (w[2] - c[2]) * k;
   return S;
 }
+const ENVY = [0.45, 1.0, 0.35];
+const BUTTERFLY = [0.55, 0.3, 1.0];
 const ELITE_COL = { swift: COL.white, armored: COL.blue, volatile: COL.red, regen: COL.lime };
-export const BPM = 112;
 
 export function drawGame(g, B, glyphs) {
   const t = g.time, cam = g.cam;
@@ -20,6 +21,7 @@ export function drawGame(g, B, glyphs) {
   drawZones(g, B, t, vis);
   drawLasers(g, B, t);
   drawPickups(g, B, t, vis);
+  drawStrings(g, B, t);
   for (const e of g.enemies) if (!e.dead && vis(e.x, e.y, e.r + 700)) drawEnemy(g, B, e, t, beat);
   drawProjectiles(g, B, t, vis);
   drawBullets(g, B, t, vis);
@@ -48,6 +50,7 @@ function drawZones(g, B, t, vis) {
         break;
       }
       case 'meteor': {
+        if (z.t < 0) break;                       // queued (Singularity)
         B.ring(z.x, z.y, z.r * (1 - k * 0.6), COL.gold, 0.5 + k * 0.5, 2, 0.6);
         const sx = z.x - 260 * (1 - k), sy = z.y - 520 * (1 - k);
         B.star(sx, sy, 20, 5, t * 9, COL.gold, 1, 2.5, 0.9, 1, 0);
@@ -288,6 +291,11 @@ function drawEnemy(g, B, e, t, beat) {
   }
   if (e.frozen > 0) B.ngon(x, y, r * 1.35, 6, e.seed * 6, COL.ice, 0.9, 1.8, 0.18, 1, 0);
   if (e.charm > 0) B.heart(x, y - r - 14 - 3 * Math.sin(t * 6), 7, -Math.PI / 2, COL.rose, 1, 0, 1, 1, 0);
+  else if (e.envy > 0) {                       // Jealousy: green broken heart with stack ticks
+    const my = y - r - 13, fa = Math.min(1, e.envyT * 2);
+    B.broken(x, my, 6 + e.envy * 0.4, -Math.PI / 2, ENVY, fa, 1.4, 0.6, 1, 0);
+    for (let k = 0; k < e.envy; k++) B.box(x - 12.5 + k * 5, my - 10, 1.6, 1.6, 0, ENVY, fa, 0, 1, 1, 0);
+  }
   // health bar on anything sturdy that has been hurt
   if (!e.boss && !e.transfer && e.maxHp > 80 && e.hp < e.maxHp && e.type !== 'plate') {
     const w = r * 1.1, f = clamp(e.hp / e.maxHp, 0, 1);
@@ -301,7 +309,10 @@ function drawProjectiles(g, B, t, vis) {
     if (p.dead || !vis(p.x, p.y)) continue;
     const c = Math.cos(p.ang), s = Math.sin(p.ang);
     const a = Math.min(1, p.life * 8);
-    if (p.kind === 'heart') {
+    if (p.kind === 'heart' && p.beat) {         // On the Beat
+      B.glow(p.x - c * 24, p.y - s * 24, 40, 11, p.ang, COL.gold, 0.9 * a);
+      B.heart(p.x, p.y, p.r + 3, p.ang, COL.gold, a, 2.4, 0.8, 1.3, 0);
+    } else if (p.kind === 'heart') {
       B.glow(p.x - c * 20, p.y - s * 20, 30, 8, p.ang, COL.hot, 0.8 * a);
       B.heart(p.x, p.y, p.r + 2, p.ang, COL.pink, a, 2, 0.75, 1, 0);
     } else if (p.kind === 'half') {
@@ -347,7 +358,35 @@ function drawBullets(g, B, t, vis) {
   }
 }
 
+function drawStrings(g, B, t) {
+  const live = g.stats.fus.livewire;
+  for (const e of g.enemies) {
+    if (!(e.tieT > 0) || !e.tie || e.tie.dead || e.dead) continue;
+    const o = e.tie;
+    if (o.tie === e && o.id < e.id && o.tieT > 0) continue;   // draw each pair once
+    const fa = Math.min(1, e.tieT * 2);
+    B.line(e.x, e.y, o.x, o.y, 2.2, COL.rose, 0.55 * fa, 1);
+    if (live) B.line(e.x, e.y, o.x, o.y, 1.2, COL.ice, (0.4 + 0.6 * Math.abs(Math.sin(t * 31 + e.id))) * fa, 1);
+    const k = (t * 0.8 + e.id * 0.37) % 1;      // a heart slides along the string
+    B.heart(e.x + (o.x - e.x) * k, e.y + (o.y - e.y) * k, 4.5, -Math.PI / 2, COL.rose, 0.8 * fa, 0, 1, 1, 0);
+  }
+}
+
 function drawAllies(g, B, t) {
+  for (const b of g.butterflies) {
+    const c = b.swoop ? COL.gold : BUTTERFLY;
+    const f = Math.abs(Math.sin(t * 15 + b.ph * 3));          // wing beat
+    const fx = Math.cos(b.ang), fy = Math.sin(b.ang);          // forward
+    const nx = -fy, ny = fx;                                     // sideways
+    for (const sd of [-1, 1]) {
+      const o = 5 + 8 * f;
+      // upper wing (big, slightly forward) and lower wing (small, behind)
+      B.heart(b.x + nx * sd * o + fx * 3, b.y + ny * sd * o + fy * 3, 9, b.ang + sd * Math.PI / 2 + Math.PI, c, 0.85, 1.6, 0.18, 0.55, 0);
+      B.heart(b.x + nx * sd * o * 0.7 - fx * 5, b.y + ny * sd * o * 0.7 - fy * 5, 6, b.ang + sd * Math.PI / 2 + Math.PI, c, 0.8, 1.4, 0.15, 0.5, 0);
+    }
+    B.line(b.x - fx * 6, b.y - fy * 6, b.x + fx * 6, b.y + fy * 6, 1.8, COL.white, 0.7, 0.2);
+    if (b.dart) B.glow(b.x - Math.cos(b.ang) * 14, b.y - Math.sin(b.ang) * 14, 24, 5, b.ang, c, 0.6);
+  }
   for (const o of g.orbitals) {
     if (!o) continue;
     B.glow(o.x - Math.cos(o.a + Math.PI / 2) * 12, o.y - Math.sin(o.a + Math.PI / 2) * 12, 22, 7, o.a + Math.PI / 2, COL.rose, 0.7);

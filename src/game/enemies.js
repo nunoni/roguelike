@@ -28,7 +28,7 @@ export function spawnEnemy(g, type, x, y, o = {}) {
     id: ++g.eid, type, def, x, y, vx: 0, vy: 0, r: def.r,
     hp: def.hp * hs, maxHp: def.hp * hs, speed: def.speed * (def.boss ? 1 : W.spdScale), xp: def.xp,
     rot: g.rng.angle(), t: 0, spawn: o.spawn ?? 0.7, state: 0, timer: g.rng.range(0.4, 1.4), seed: g.rng.next(),
-    flash: 0, burn: 0, burnT: 0, burnAcc: 0, chill: 0, frozen: 0, freezeImm: 0, charm: 0, ctgt: null, ctgtT: 0,
+    flash: 0, burn: 0, burnT: 0, burnAcc: 0, burnStacks: 0, envy: 0, envyT: 0, tie: null, tieT: 0, wireT: 0, chill: 0, frozen: 0, freezeImm: 0, charm: 0, ctgt: null, ctgtT: 0,
     faded: false, dead: false, boss: !!def.boss, elite: null, hitT: 0,
   };
   if (o.elite && !def.boss && !def.noElite) {

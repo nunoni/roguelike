@@ -49,7 +49,12 @@ From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 - **Ouroboros:** a giant serpent that sheds its tail as it weakens.
 - **The Hollow Heart:** three phases; the last closes the arena in on you.
 
-**Skills.** There are 24 skills: stats, techniques that change how your hearts behave, and spells that act on their own. They form 12 fusion pairs:
+**Skills.** There are 28 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
+- Racing Pulse also makes spells cast faster.
+- Cherubs copy your extra hearts, fire rate and heart effects.
+- Burn stacks with every hit.
+
+Each skill has a **signature partner**:
 
 | | | Fusion |
 |---|---|---|
@@ -65,8 +70,12 @@ From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 | Big Heart | Stolen Heart | **Bleeding Heart** |
 | Crush | Passion | **Heartstopper** |
 | Lighthearted | Shooting Stars | **Stardust Waltz** |
+| On the Beat | Butterflies | **Ballroom** |
+| Jealousy | Heartstrings | **Soulmates** |
 
-Every card shows its fusion partner. Fusions you discover are saved to the Fusion Codex on the title screen. Your best score, settings and codex are kept in `localStorage`.
+There are also 14 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire and Heartache. Each skill can only be spent on **one** fusion per run, so when two are ready at once you have to choose.
+
+Every card shows its fusion partners. Fusions you discover are saved to the Fusion Codex on the title screen. Your best score, settings and codex are kept in `localStorage`.
 
 ## Project layout
 

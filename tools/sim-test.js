@@ -3,7 +3,7 @@
 
 import { Game } from '../src/game/game.js';
 import { botInput, botChoose } from '../src/game/bot.js';
-import { SKILLS, FUSIONS, rollChoices, describeChoice, computeStats } from '../src/game/upgrades.js';
+import { SKILLS, FUSIONS, rollChoices, describeChoice, computeStats, readyFusions } from '../src/game/upgrades.js';
 import { DEFS } from '../src/game/enemies.js';
 import { UNLOCK } from '../src/game/waves.js';
 import { BOSS_ORDER } from '../src/game/bosses.js';
@@ -65,13 +65,20 @@ console.log('catalogue');
 {
   const ids = new Set(SKILLS.map((s) => s.id));
   check(ids.size === SKILLS.length, 'skill ids are unique');
-  const used = new Set();
-  for (const f of FUSIONS) for (const id of f.from) {
-    check(ids.has(id), `fusion ${f.id} parent ${id} exists`);
-    check(!used.has(id), `skill ${id} belongs to a single fusion`);
-    used.add(id);
+  check(new Set(FUSIONS.map((f) => f.id)).size === FUSIONS.length, 'fusion ids are unique');
+  const sig = new Set(), recipes = new Set();
+  for (const f of FUSIONS) {
+    check(f.type === 'pair' || f.type === 'cross', `${f.id} has a type`);
+    check(f.from[0] !== f.from[1], `${f.id} mixes two different skills`);
+    const key = [...f.from].sort().join('+');
+    check(!recipes.has(key), `${f.id} is the only recipe for ${key}`);
+    recipes.add(key);
+    for (const id of f.from) {
+      check(ids.has(id), `fusion ${f.id} parent ${id} exists`);
+      if (f.type === 'pair') { check(!sig.has(id), `skill ${id} has a single signature fusion`); sig.add(id); }
+    }
   }
-  check(used.size === SKILLS.length, 'every skill has a fusion partner');
+  check(sig.size === SKILLS.length, 'every skill has a signature partner');
   const g = newGame({ seed: 1 });
   for (const s of SKILLS) for (let l = 1; l <= s.max; l++) check(typeof s.lv(l) === 'string', `${s.id} lv${l} text`);
   for (const s of SKILLS) {
@@ -93,6 +100,19 @@ console.log('catalogue');
     check(describeChoice(g2, ch[0]).title === f.name, `${f.id} card text`);
   }
   for (const c of rollChoices(g)) check(!!describeChoice(g, c).title, 'card describes');
+
+  // a skill can only be spent once: Supernova uses up Heartburn, so Thermal Shock is gone
+  {
+    const g3 = newGame({ seed: 4 });
+    for (const id of ['burn', 'burst', 'chill']) g3.levels[id] = SKILLS.find((s) => s.id === id).max;
+    const ready = readyFusions(g3.levels, g3.fusions).map((f) => f.id).sort().join(',');
+    check(ready === 'supernova,thermal', `competing fusions both ready (${ready})`);
+    const ch = rollChoices(g3).filter((c) => c.kind === 'fusion').map((c) => c.id);
+    check(ch.length === 2 && ch[0] === 'supernova', `both offered, signature first (${ch})`);
+    g3.fusions.supernova = true;
+    check(!readyFusions(g3.levels, g3.fusions).length, 'spent skill blocks its other recipes');
+    check(!describeChoice(g3, { kind: 'skill', id: 'chain' }).also.includes('Heartburn'), 'cards hide recipes with spent skills');
+  }
 }
 
 // ---------------------------------------------------------------- 2. full run, invulnerable
@@ -134,6 +154,22 @@ console.log('all skills maxed + all fusions');
     check(bombs > 0, 'love bomb fires');
     check(r.peak.projs <= 1400 && r.peak.zones <= 400, `counts bounded when maxed (${JSON.stringify(r.peak)})`);
   }
+}
+
+// ---------------------------------------------------------------- 3b. each fusion on its own
+console.log('each fusion in combat');
+for (const f of FUSIONS) {
+  const g = newGame({ seed: 30, god: true });
+  for (const id of f.from) g.levels[id] = SKILLS.find((s) => s.id === id).max;
+  g.levels.dmg = 2;
+  g.fusions[f.id] = true;
+  g.setStats();
+  g.waves.n = 11; g.waves.timer = 0.1;
+  const dmg0 = g.stat.dmg;
+  const r = run(g, { maxSeconds: 60 });
+  check(!r.err, `${f.id}: no NaN` + (r.err ? ': ' + r.err : ''));
+  check(g.stat.dmg > dmg0 && g.kills > 0, `${f.id}: deals damage (${g.kills} kills)`);
+  check(r.peak.projs <= 1400 && r.peak.zones <= 400, `${f.id}: counts bounded`);
 }
 
 // ---------------------------------------------------------------- 4. each boss in isolation
