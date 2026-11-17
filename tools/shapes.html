@@ -1,0 +1,59 @@
+<!doctype html>
+<!-- Dev gallery: renders every shape through the real pipeline. Open via the local server. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>shape gallery</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100vw;height:100vh;display:block}#err{position:fixed;left:8px;top:8px;color:#f66;font:14px monospace;white-space:pre-wrap}</style>
+</head>
+<body>
+<canvas id="c"></canvas><div id="err"></div>
+<script type="module">
+const err = document.getElementById('err');
+window.addEventListener('error', (e) => { err.textContent += e.message + '\n'; });
+window.addEventListener('unhandledrejection', (e) => { err.textContent += e.reason + '\n'; });
+try {
+  const { Renderer } = await import('../src/gfx/renderer.js');
+  const { Fx } = await import('../src/gfx/fx.js');
+  const { COL, SECTORS, ARENA } = await import('../src/config.js');
+  const r = new Renderer(document.getElementById('c'), { preserve: true });
+  const fx = new Fx();
+  const sector = SECTORS[+(new URLSearchParams(location.search).get('s') || 0)];
+  fx.burst(-500, 250, COL.pink, 60, 500, 1.5, 6, 0);
+  fx.burst(-200, 250, COL.cyan, 30, 300, 1.5, 9, 1);
+  fx.lightning(100, 200, 400, 320, COL.ice);
+  fx.ring(600, 250, COL.gold, 10, 120, 1, 4);
+  fx.text(0, 400, 'CRIT 128! +5 ♥', COL.gold, 26, 2);
+  fx.shock(300, -100, 1, 500, 1);
+  fx.update(0.25);
+  const draw = (b) => {
+    const cols = Object.values(COL);
+    b.heart(-800, -300, 60, -Math.PI / 2, COL.pink, 1, 3, 0.4, 1);
+    b.heart(-800, -300, 26, -Math.PI / 2, COL.white, 1, 0, 0.9, 0, 0);
+    b.broken(-640, -300, 60, -Math.PI / 2, COL.violet);
+    b.circle(-480, -300, 50, COL.cyan);
+    b.ngon(-340, -300, 50, 3, 0, COL.lime);
+    b.ngon(-200, -300, 50, 6, 0, COL.teal);
+    b.ngon(-60, -300, 50, 5, 0, COL.violet);
+    b.star(100, -300, 55, 5, -Math.PI / 2, COL.amber);
+    b.star(250, -300, 55, 8, 0, COL.gold, 1, 2, 0.3, 1, 0.8, 0.7);
+    b.box(400, -300, 45, 45, 0.4, COL.blue, 1, 2, 0.25, 1, 0.8, 8);
+    b.crescent(540, -300, 50, 0, COL.ghost);
+    b.plus(680, -300, 40, 0, COL.red);
+    b.chevron(820, -300, 50, 0, COL.orange);
+    b.arc(-800, -80, 70, 0, 1.0, 5, COL.blue);
+    b.line(-650, -120, -450, -40, 5, COL.hot);
+    b.line(-650, -40, -450, -120, 2, COL.white, 0.8);
+    b.ring(-300, -80, 60, COL.red, 1, 2);
+    for (let i = 0; i < cols.length; i++) b.heart(-100 + i * 55, -80, 18, 0, cols[i], 1, 1.6, 0.6, 1);
+    for (let i = 0; i < 8; i++) b.glow(-800 + i * 60, 80, 20 + i * 4, 8, 0.3 * i, cols[i], 1);
+  };
+  r.render({ cam: { x: 0, y: 0 }, time: 3, sector, fx, arena: { hw: 900, hh: 480 }, draw, wells: [{ x: 600, y: 50, r: 200, k: 0.6 }] });
+  document.title = 'ok hdr=' + r.hdr;
+  report('ok hdr=' + r.hdr + ' size=' + r.w + 'x' + r.h);
+  fetch('/__dev/shot?name=shapes', { method: 'POST', body: document.getElementById('c').toDataURL('image/png') });
+} catch (e) { err.textContent += (e.stack || e) + '\n'; report(String(e.stack || e)); }
+function report(msg) { fetch('/__dev/log?name=shapes', { method: 'POST', body: msg }).catch(() => {}); }
+</script>
+</body>
+</html>

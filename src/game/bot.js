@@ -1,0 +1,99 @@
+// A simple autopilot. Used for the title-screen attract mode and for headless
+// test runs; it is not meant to play well, only plausibly.
+
+import { ARENA } from '../config.js';
+import { SKILL_BY_ID, FUSION_OF } from './upgrades.js';
+
+export function botInput(g) {
+  const p = g.player;
+  let fx = 0, fy = 0, near = null, nd = 1e9, crowd = 0, danger = 0;
+
+  for (const e of g.enemies) {
+    if (e.dead || e.charm > 0) continue;
+    const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+    if (e.spawn <= 0 && !e.faded && !e.def.untargetable && d < nd) { nd = d; near = e; }
+    const reach = 260 + e.r * 2;
+    if (d < reach) {
+      const w = (reach - d) / reach;
+      fx += (dx / d) * w * 2.2; fy += (dy / d) * w * 2.2;
+      crowd++;
+      if (d < 90 + e.r) danger++;
+    }
+  }
+  for (const b of g.bullets) {
+    const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy) || 1;
+    if (d < 190) {
+      const w = (190 - d) / 190;
+      // sidestep across the bullet's path rather than straight back
+      const s = Math.sign(b.vx * dy - b.vy * dx) || 1;
+      const bl = Math.hypot(b.vx, b.vy) || 1;
+      fx += (-b.vy / bl) * s * w * 2.6 + (dx / d) * w; fy += (b.vx / bl) * s * w * 2.6 + (dy / d) * w;
+      if (d < 70) danger++;
+    }
+  }
+  for (const z of g.zones) {
+    if (z.kind !== 'blast') continue;
+    const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy) || 1;
+    if (d < z.r + 60) { fx += (dx / d) * 4; fy += (dy / d) * 4; }
+  }
+  for (const l of g.lasers) {
+    const ex = l.x + Math.cos(l.ang) * l.len, ey = l.y + Math.sin(l.ang) * l.len;
+    const dx = ex - l.x, dy = ey - l.y, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - l.x) * dx + (p.y - l.y) * dy) / l2));
+    const cx = l.x + dx * t, cy = l.y + dy * t;
+    const ox = p.x - cx, oy = p.y - cy, d = Math.hypot(ox, oy) || 1;
+    const reach = l.w * 0.5 + 130;
+    if (d < reach) { const w = (reach - d) / reach * 5; fx += (ox / d) * w; fy += (oy / d) * w; if (d < l.w * 0.5 + 40 && l.t > l.warn - 0.25) danger++; }
+  }
+  // stay off the walls, drift toward loot when it is quiet
+  fx -= Math.pow(p.x / ARENA.hw, 3) * 3; fy -= Math.pow(p.y / ARENA.hh, 3) * 3;
+  if (g.ringArena) {
+    const dx = g.ringArena.x - p.x, dy = g.ringArena.y - p.y, d = Math.hypot(dx, dy) || 1;
+    if (d > g.ringArena.r - 160) { fx += (dx / d) * 5; fy += (dy / d) * 5; }
+  }
+  if (crowd < 3) {
+    let best = null, bd = 700 * 700;
+    for (const k of g.pickups) {
+      const d = (k.x - p.x) ** 2 + (k.y - p.y) ** 2;
+      if (d < bd) { bd = d; best = k; }
+    }
+    if (best) { const d = Math.sqrt(bd) || 1; fx += ((best.x - p.x) / d) * 0.9; fy += ((best.y - p.y) / d) * 0.9; }
+    else if (near && nd > 420) { fx += ((near.x - p.x) / nd) * 0.6; fy += ((near.y - p.y) / nd) * 0.6; }
+  }
+  // gentle circling so the bot never stands still
+  fx += Math.cos(g.time * 0.7) * 0.25; fy += Math.sin(g.time * 0.9) * 0.25;
+
+  const l = Math.hypot(fx, fy);
+  const mx = l > 0.05 ? fx / l : 0, my = l > 0.05 ? fy / l : 0;
+  const ax = near ? near.x + near.vx * 0.12 : p.x + Math.cos(g.time) * 200;
+  const ay = near ? near.y + near.vy * 0.12 : p.y + Math.sin(g.time) * 200;
+  return {
+    mx, my, ax, ay,
+    fire: !!near && nd < 900,
+    dash: danger > 0 && p.dashCharges > 0 && p.invuln <= 0,
+    bomb: g.bomb >= 1 && (crowd >= 10 || danger >= 3 || (p.hp <= 2 && crowd >= 4)),
+  };
+}
+
+/** Pick an upgrade: fusions first, then whatever advances an owned pair. */
+export function botChoose(g) {
+  const L = g.levels;
+  let best = 0, score = -1;
+  g.choices.forEach((c, i) => {
+    let s = g.rng.next();
+    if (c.kind === 'fusion') s += 100;
+    else if (c.kind === 'skill') {
+      const lv = L[c.id] || 0;
+      if (lv > 0) s += 4 + lv;
+      const f = FUSION_OF[c.id];
+      if (f) {
+        const other = f.from[0] === c.id ? f.from[1] : f.from[0];
+        if ((L[other] || 0) > 0) s += 3 + (L[other] || 0);
+        if ((L[other] || 0) >= SKILL_BY_ID[other].max) s += 5;
+      }
+      if (c.id === 'hp' && g.player.hp <= 2) s += 6;
+    }
+    if (s > score) { score = s; best = i; }
+  });
+  return best;
+}
