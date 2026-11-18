@@ -65,7 +65,7 @@ export class Waves {
       return;
     }
 
-    this.budget = this.total = (20 + 11 * n + 0.9 * n * n) * 0.9;
+    this.budget = this.total = 20 + 11 * n + 0.9 * n * n;
     this.cap = 14 + 6.5 * n;
     const unlocked = UNLOCK.filter(([, at]) => at <= n).map(([t]) => t);
     const fresh = UNLOCK.find(([, at]) => at === n);
