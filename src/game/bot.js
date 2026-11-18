@@ -32,7 +32,14 @@ export function botInput(g) {
     }
   }
   for (const z of g.zones) {
-    if (z.kind === 'blast') {
+    if (z.kind === 'blast' && z.gapX !== undefined) {   // Crystal Prison: run for the gap
+      const dx = p.x - z.x, dy = p.y - z.y;
+      if (Math.hypot(dx, dy) < 420) {
+        const gx = z.gapX - p.x, gy = z.gapY - p.y, gd = Math.hypot(gx, gy) || 1;
+        fx += (gx / gd) * 14; fy += (gy / gd) * 14;
+        if (z.t > z.dur - 0.5) danger++;
+      }
+    } else if (z.kind === 'blast') {
       const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy) || 1;
       if (d < z.r + 60) { fx += (dx / d) * 4; fy += (dy / d) * 4; }
     } else if (z.kind === 'tile') {           // square floor tiles: step out of the lit ones

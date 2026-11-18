@@ -532,6 +532,16 @@ function drawEnemy(g, B, e, t, beat) {
       if (sw > 0.05) B.ring(x, y, 130 + r, COL.lime, 0.3 * sw, 1.2, 0.5);
       break;
     }
+    case 'jar': {                                // Love Jar: glass, a glowing heart inside, a gold lid
+      const life = clamp(e.life / 22, 0, 1), blink = life < 0.25 ? 0.55 + 0.45 * Math.sin(t * 18) : 1;
+      const aa = a * blink, pul = 0.5 + 0.5 * Math.sin(t * 4 + e.seed * 7);
+      B.glow(x, y, r * 3.4, r * 3.4, 0, COL.gold, (0.3 + 0.2 * pul) * aa);
+      B.box(x, y + 3, r * 0.95, r * 1.15, rot, tint(COL.ice, COL.white, e.flash).slice(), aa, 2, 0.12, 0.8, 0.5, 8);
+      B.box(x - Math.sin(rot) * r * 1.25, y - r * 1.2, r * 0.75, r * 0.22, rot, COL.gold, aa, 1.8, 0.7, 1, 0, 3);
+      B.heart(x, y + 5, r * (0.62 + 0.06 * pul), Math.PI / 2 + rot, COL.hot, aa, 1.6, 0.9, 1.3, 0);
+      B.star(x + r * 0.45, y - r * 0.35, 3 + 2 * pul, 4, t * 2, COL.white, aa, 0, 1, 1, 0);
+      break;
+    }
     case 'sac': {
       const q = clamp(1 - e.hatch / 5, 0, 1), pul = 0.5 + 0.5 * Math.sin(t * (3 + q * 20));
       B.circle(x, y, r * (1 + 0.1 * pul * q), c, a, 2, 0.2 + 0.4 * q * pul, 1);
@@ -781,12 +791,19 @@ function drawPointers(g, B, t) {
   let alive = 0;
   for (const e of g.enemies) if (!e.dead && !e.def.untargetable) alive++;
   for (const e of g.enemies) {
-    if (e.dead || e.def.untargetable || (!e.boss && alive > 6)) continue;
+    if (e.dead || e.def.untargetable || e.def.loot || (!e.boss && alive > 6)) continue;
     const dx = e.x - cam.x, dy = e.y - cam.y;
     if (Math.abs(dx) < hx + 30 && Math.abs(dy) < hy + 30) continue;
     const k = Math.min(hx / Math.abs(dx || 1), hy / Math.abs(dy || 1));
     const col = e.boss ? COL.red : COL[e.def.col] || COL.cyan;
     B.chevron(cam.x + dx * k, cam.y + dy * k, e.boss ? 20 : 12, Math.atan2(dy, dx), col, 0.6 + 0.4 * Math.sin(t * 8), 2, 0.6, 1, 0);
+  }
+  for (const e of g.enemies) {                 // Love Jars always get a pointer
+    if (e.dead || e.type !== 'jar' || e.spawn > 0) continue;
+    const dx = e.x - cam.x, dy = e.y - cam.y;
+    if (Math.abs(dx) < hx + 30 && Math.abs(dy) < hy + 30) continue;
+    const s = Math.min(hx / Math.abs(dx || 1), hy / Math.abs(dy || 1));
+    B.chevron(cam.x + dx * s, cam.y + dy * s, 15, Math.atan2(dy, dx), COL.gold, 0.6 + 0.4 * Math.sin(t * 8), 2, 0.8, 1, 0);
   }
   for (const k of g.pickups) {
     if (k.kind !== 'container' || k.dead) continue;

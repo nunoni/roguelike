@@ -138,6 +138,7 @@ console.log('full run (god mode, bot-chosen build)');
   for (const b of plan) check(g.stat.seen[b] > 0, `spawned planned boss ${b}`);
   check(plan.every((b, i) => BOSS_POOLS[i].includes(b)), `boss plan drawn from the pools (${plan})`);
   check(gates >= 3, `warp gates opened after the branching bosses (${gates})`);
+  check(g.stat.seen.jar >= 5 && g.stat.jars >= 3, `love jars turn up and get broken (${g.stat.seen.jar} seen, ${g.stat.jars} broken)`);
   check(routeAt21 && routeAt21.length === 5 && routeAt21.every((id, i) => ROUTE_TIERS[i].includes(id)), `route follows the tiers (${routeAt21})`);
   check(g.route.length >= 6, `endless keeps extending the route (${g.route.join(',')})`);
   check(r.peak.enemies <= 420, `enemy count bounded (peak ${r.peak.enemies})`);

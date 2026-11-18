@@ -15,6 +15,7 @@ import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
 import { Waves } from './waves.js';
 import { updateHazards, clearHazards } from './hazards.js';
 import { updateArsenal, dropDecoy, goldStream, goldCollect } from './arsenal.js';
+import { updateLoot } from './loot.js';
 
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
@@ -177,6 +178,7 @@ export class Game {
     this.updatePickups(dt);
     this.updateBombRing(dt);
     updateHazards(this, dt);
+    updateLoot(this, dt);
     if (this.gates) this.updateGates(dt);
 
     for (let i = this.delayed.length - 1; i >= 0; i--) {

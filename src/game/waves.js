@@ -59,7 +59,7 @@ export class Waves {
       this.bossScale = Math.pow(2.6, Math.floor(idx / ROUTE_TIERS.length));
       const b = spawnBoss(g, idx);
       this.budget = 0;
-      this.cap = 6 + n * 0.8;
+      this.cap = 5 + n * 1.15;
       this.mix = [['drifter', 3], ['mote', 2]];
       g.ui.banner('WARNING', b.def.name, 'boss');
       g.audio.play('bossWarn');
@@ -126,14 +126,14 @@ export class Waves {
       if (e.dead) continue;
       count[e.type] = (count[e.type] || 0) + 1;
       if (!e.boss) threat += e.def.threat || 0;
-      if (!e.def.untargetable && !e.def.hazard) alive++;
+      if (!e.def.untargetable && !e.def.hazard && !e.def.loot) alive++;
     }
     this.aliveThreat = threat;
 
     this.spawnT -= dt;
     if (this.boss) {                       // a trickle of adds keeps XP flowing in boss fights
       if (this.spawnT <= 0) {
-        this.spawnT = 2.6;
+        this.spawnT = this.n <= 5 ? 2.6 : 2.0;      // the first boss keeps the gentler trickle
         if (threat < this.cap && g.enemies.length < 240) this.spawnGroup();
       }
       return;

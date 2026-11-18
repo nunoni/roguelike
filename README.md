@@ -43,6 +43,8 @@ It needs a browser with WebGL2 (any current Firefox, Chrome, Edge or Safari).
 
 From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 
+**Love Jars.** Now and then a jar appears during a normal wave (there's an arrow pointing to it). Break it before it fades for a roll: a pile of XP (55%), two healing hearts (30%, XP instead if you're at full health), an instant level-up (12%) or the jackpot (3%: level-up, XP, hearts and a full Love Bomb).
+
 **Sectors and the route.** A run crosses 5 tiers of 5 waves. After each boss, two **warp gates** open; fly into one to choose the next sector. Every sector has its own hazard, and each one is as much a weapon as a threat:
 
 | Tier | Sector options | Hazard |

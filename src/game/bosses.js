@@ -538,7 +538,7 @@ function aiShatter(g, e, dt) {
     e.atk = (e.atk + 1) % 4;
     if (e.atk === 3) { crystalPrison(g); e.timer = 2; return; }
     e.state = e.atk + 1;
-    e.count = e.atk === 0 ? 4 : e.atk === 2 ? 5 : 1;
+    e.count = e.atk === 0 ? 3 : e.atk === 2 ? 4 : 1;
     e.timer = e.atk === 1 ? 0 : 0.2;
   } else if (e.state === 1) {               // splinter fans
     if (e.timer <= 0) {
@@ -560,14 +560,15 @@ function aiShatter(g, e, dt) {
 
 /** A ring of blasts closes around you with a single gap, plus one on top of you. */
 function crystalPrison(g) {
-  const p = g.player, n = 10, R = 235, gap = Math.floor(g.rng.next() * n), a0 = g.rng.angle();
+  const p = g.player, n = 9, R = 245, gap = Math.floor(g.rng.next() * n), a0 = g.rng.angle();
   const cx = clamp(p.x + p.vx * 0.2, -ARENA.hw + 60, ARENA.hw - 60), cy = clamp(p.y + p.vy * 0.2, -ARENA.hh + 60, ARENA.hh - 60);
   for (let i = 0; i < n; i++) {
     if (i === gap) continue;
     const a = a0 + (i / n) * TAU;
-    g.zones.push({ kind: 'blast', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 88, t: 0, dur: 1.2, tick: 0, crystal: true });
+    g.zones.push({ kind: 'blast', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 88, t: 0, dur: 1.35, tick: 0, crystal: true });
   }
-  g.zones.push({ kind: 'blast', x: cx, y: cy, r: 130, t: 0, dur: 1.2, tick: 0, crystal: true });
+  const ga = a0 + (gap / n) * TAU;
+  g.zones.push({ kind: 'blast', x: cx, y: cy, r: 130, t: 0, dur: 1.35, tick: 0, crystal: true, gapX: cx + Math.cos(ga) * (R + 120), gapY: cy + Math.sin(ga) * (R + 120) });
   g.fx.text(cx, cy - 60, 'PRISON', COL.ice, 13, 0.9);
   g.audio.play('telegraph');
 }
