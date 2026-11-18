@@ -32,9 +32,20 @@ export function botInput(g) {
     }
   }
   for (const z of g.zones) {
-    if (z.kind !== 'blast') continue;
-    const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy) || 1;
-    if (d < z.r + 60) { fx += (dx / d) * 4; fy += (dy / d) * 4; }
+    if (z.kind === 'blast') {
+      const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy) || 1;
+      if (d < z.r + 60) { fx += (dx / d) * 4; fy += (dy / d) * 4; }
+    } else if (z.kind === 'tile') {           // square floor tiles: step out of the lit ones
+      const dx = p.x - z.x, dy = p.y - z.y;
+      if (Math.abs(dx) < z.r + 30 && Math.abs(dy) < z.r + 30) {
+        const d = Math.hypot(dx, dy) || 1;
+        fx += (dx / d) * 4.5; fy += (dy / d) * 4.5;
+        if (z.t > z.dur - 0.25 && Math.abs(dx) < z.r && Math.abs(dy) < z.r) danger++;
+      }
+    } else if (z.kind === 'web') {
+      const dx = p.x - z.x, dy = p.y - z.y, d = Math.hypot(dx, dy) || 1;
+      if (d < z.r + 40) { fx += (dx / d) * 1.5; fy += (dy / d) * 1.5; }
+    }
   }
   for (const l of g.lasers) {
     const ex = l.x + Math.cos(l.ang) * l.len, ey = l.y + Math.sin(l.ang) * l.len;
@@ -44,6 +55,10 @@ export function botInput(g) {
     const ox = p.x - cx, oy = p.y - cy, d = Math.hypot(ox, oy) || 1;
     const reach = l.w * 0.5 + 130;
     if (d < reach) { const w = (reach - d) / reach * 5; fx += (ox / d) * w; fy += (oy / d) * w; if (d < l.w * 0.5 + 40 && l.t > l.warn - 0.25) danger++; }
+    if (l.pendulum) {                          // swinging beam: back out of its reach
+      const rx = p.x - l.x, ry = p.y - l.y, rd = Math.hypot(rx, ry) || 1;
+      if (rd < l.len + 90) { fx += (rx / rd) * 4; fy += (ry / rd) * 4; }
+    }
   }
   // stay off the walls, drift toward loot when it is quiet
   fx -= Math.pow(p.x / ARENA.hw, 3) * 3; fy -= Math.pow(p.y / ARENA.hh, 3) * 3;

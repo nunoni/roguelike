@@ -6,7 +6,8 @@ import { botInput, botChoose } from '../src/game/bot.js';
 import { SKILLS, FUSIONS, rollChoices, describeChoice, computeStats, readyFusions } from '../src/game/upgrades.js';
 import { DEFS } from '../src/game/enemies.js';
 import { UNLOCK } from '../src/game/waves.js';
-import { BOSS_ORDER } from '../src/game/bosses.js';
+import { BOSS_ORDER, BOSS_POOLS } from '../src/game/bosses.js';
+import { FINAL_WAVE, WAVES_PER_SECTOR } from '../src/config.js';
 
 const noop = () => {};
 const stub = () => new Proxy({}, { get: () => noop });
@@ -120,13 +121,15 @@ console.log('full run (god mode, bot-chosen build)');
 {
   const g = newGame({ seed: 7, god: true });
   const t0 = Date.now();
-  const r = run(g, { until: (g) => g.wave >= 22, maxSeconds: 3000 });
+  const plan = [...g.bossPlan];
+  const r = run(g, { until: (g) => g.wave >= FINAL_WAVE + 2, maxSeconds: 4200 });
   const ms = Date.now() - t0;
   check(!r.err, 'no NaN / infinite values' + (r.err ? ': ' + r.err : ''));
-  check(r.victory, 'reached victory after wave 20');
-  check(g.wave >= 22, `endless continues past the final wave (wave ${g.wave})`);
+  check(r.victory, `reached victory after wave ${FINAL_WAVE}`);
+  check(g.wave >= FINAL_WAVE + 2, `endless continues past the final wave (wave ${g.wave})`);
   for (const [t] of UNLOCK) check(g.stat.seen[t] > 0, `spawned ${t}`);
-  for (const b of BOSS_ORDER) check(g.stat.seen[b] > 0, `spawned boss ${b}`);
+  for (const b of plan) check(g.stat.seen[b] > 0, `spawned planned boss ${b}`);
+  check(plan.every((b, i) => BOSS_POOLS[i].includes(b)), `boss plan drawn from the pools (${plan})`);
   check(r.peak.enemies <= 420, `enemy count bounded (peak ${r.peak.enemies})`);
   check(r.peak.projs <= 1400, `projectile count bounded (peak ${r.peak.projs})`);
   check(r.peak.bullets <= 900, `bullet count bounded (peak ${r.peak.bullets})`);
@@ -146,11 +149,11 @@ console.log('all skills maxed + all fusions');
     g.player.hp = 2;                         // so Bleeding Heart's bonus is active
     let bombs = 0;
     const r = run(g, {
-      until: (g) => g.wave >= 21, maxSeconds: 2400,
+      until: (g) => g.wave >= FINAL_WAVE + 1, maxSeconds: 3600,
       onFrame: (g, f) => { if (f % 600 === 0) { g.bomb = 1; if (g.useBomb()) bombs++; g.heal(3); g.player.hp = 2; } },
     });
     check(!r.err, `no NaN with everything active (beam=${beam})` + (r.err ? ': ' + r.err : ''));
-    check(g.wave >= 21, `maxed build clears all 20 waves (beam=${beam}, wave ${g.wave}, ${Math.round(r.seconds)}s)`);
+    check(g.wave >= FINAL_WAVE + 1, `maxed build clears all ${FINAL_WAVE} waves (beam=${beam}, wave ${g.wave}, ${Math.round(r.seconds)}s)`);
     check(bombs > 0, 'love bomb fires');
     check(r.peak.projs <= 1400 && r.peak.zones <= 400, `counts bounded when maxed (${JSON.stringify(r.peak)})`);
   }
@@ -164,7 +167,7 @@ for (const f of FUSIONS) {
   g.levels.dmg = 2;
   g.fusions[f.id] = true;
   g.setStats();
-  g.waves.n = 11; g.waves.timer = 0.1;
+  g.waves.n = 7; g.waves.timer = 0.1;
   const dmg0 = g.stat.dmg;
   const r = run(g, { maxSeconds: 60 });
   check(!r.err, `${f.id}: no NaN` + (r.err ? ': ' + r.err : ''));
@@ -174,16 +177,23 @@ for (const f of FUSIONS) {
 
 // ---------------------------------------------------------------- 4. each boss in isolation
 console.log('bosses');
-for (let i = 0; i < 4; i++) {
-  const g = newGame({ seed: 20 + i, god: true });
-  for (const s of SKILLS) g.levels[s.id] = Math.ceil(s.max / 2);
-  g.setStats();
-  g.waves.n = (i + 1) * 5 - 1;
-  g.waves.timer = 0.1;
-  const r = run(g, { until: (g) => g.wave > (i + 1) * 5, maxSeconds: 900 });
-  check(!r.err, `${BOSS_ORDER[i]}: no NaN` + (r.err ? ': ' + r.err : ''));
-  check(g.wave > (i + 1) * 5 || r.victory, `${BOSS_ORDER[i]} can be defeated (${Math.round(r.seconds)}s, bullets peak ${r.peak.bullets})`);
-}
+BOSS_POOLS.forEach((pool, i) => {
+  for (const type of pool) {
+    const g = newGame({ seed: 20 + i, god: true });
+    for (const s of SKILLS) g.levels[s.id] = Math.ceil(s.max / 2);
+    g.setStats();
+    g.bossPlan[i] = type;
+    const n = (i + 1) * WAVES_PER_SECTOR;
+    g.waves.n = n - 1;
+    g.waves.timer = 0.1;
+    const r = run(g, { until: (g) => g.wave > n, maxSeconds: 900 });
+    check(g.stat.seen[type] > 0, `${type} spawns in sector ${i + 1}`);
+    check(!r.err, `${type}: no NaN` + (r.err ? ': ' + r.err : ''));
+    check(g.wave > n || r.victory, `${type} can be defeated (${Math.round(r.seconds)}s, bullets peak ${r.peak.bullets}, zones ${r.peak.zones})`);
+    check(r.peak.bullets <= 900 && r.peak.zones <= 400, `${type}: counts bounded`);
+    check(!g.dark, `${type}: darkness lifts after the fight`);
+  }
+});
 
 // ---------------------------------------------------------------- 5. mortal run sanity
 console.log('mortal run');

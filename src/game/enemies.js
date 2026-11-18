@@ -88,7 +88,7 @@ function aiSpitter(g, e, dt) {
   e.rot = turnToward(e.rot, a, 5 * dt);
   e.timer -= dt;
   if (e.timer <= 0 && d < 760) {
-    e.timer = 2.1;
+    e.timer = g.wave >= 9 ? 2.7 : 2.2;
     const n = g.wave >= 9 ? 3 : 1;
     for (let i = 0; i < n; i++) g.fireBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a + (i - (n - 1) / 2) * 0.2, 390);
     g.audio.play('enemyShot');
@@ -135,18 +135,18 @@ function aiPinwheel(g, e, dt) {
   e.rot += dt * 1.15;
   e.timer -= dt;
   if (e.state === 0) {
-    if (e.timer <= 0) { e.state = 1; e.timer = 2.6; e.shotT = 0; }
+    if (e.timer <= 0) { e.state = 1; e.timer = 2.0; e.shotT = 0; }
   } else {
     e.shotT -= dt;
     if (e.shotT <= 0 && d < 1000) {
-      e.shotT += 0.3;
+      e.shotT += 0.45;
       for (let i = 0; i < 3; i++) {
         const a = e.rot + (i / 3) * TAU;
-        g.fireBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, 250, { life: 4.2 });
+        g.fireBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, 240, { life: 3.2 });
       }
       g.audio.play('enemyShot');
     }
-    if (e.timer <= 0) { e.state = 0; e.timer = 2.3; }
+    if (e.timer <= 0) { e.state = 0; e.timer = 3.4; }
   }
 }
 
@@ -180,18 +180,18 @@ function aiRay(g, e, dt) {
     steer(e, e.x + Math.cos(ma) * 100, e.y + Math.sin(ma) * 100, e.speed, 3, dt);
     e.rot = turnToward(e.rot, a, 4 * dt);
     if (e.timer <= 0 && d < 1100) {
-      e.state = 1; e.timer = 1.75;
-      e.laser = g.addLaser({ x: e.x, y: e.y, ang: e.rot, len: 1700, w: 20, warn: 1.35, dur: 0.3, owner: e });
+      e.state = 1; e.timer = 2.0;
+      e.laser = g.addLaser({ x: e.x, y: e.y, ang: e.rot, len: 1700, w: 20, warn: 1.6, dur: 0.3, owner: e });
       g.audio.play('charge');
     }
   } else {
     brake(e, 6, dt);
-    if (e.timer > 0.85) e.rot = turnToward(e.rot, a, 2.2 * dt);   // tracks, then locks
+    if (e.timer > 1.0) e.rot = turnToward(e.rot, a, 1.8 * dt);   // tracks, then locks
     if (e.laser && !e.laser.dead) {
       e.laser.ang = e.rot;
       if (!e.fired && e.laser.t >= e.laser.warn) { e.fired = true; g.audio.play('laser'); g.fx.shake(5); }
     }
-    if (e.timer <= 0) { e.state = 0; e.timer = 2.4; e.fired = false; e.laser = null; }
+    if (e.timer <= 0) { e.state = 0; e.timer = 4.0; e.fired = false; e.laser = null; }
   }
 }
 
@@ -324,9 +324,9 @@ export const DEFS = {
     onDeath(g, e) { g.explode(e.x, e.y, 120, 45 * g.waves.hpScale, { col: COL.red }); },
   },
   warden: { hp: 95, speed: 100, r: 22, xp: 5, threat: 4, col: 'blue', ai: aiWarden, shieldArc: { r: 48, half: 0.95 }, maxAlive: 6 },
-  pinwheel: { hp: 110, speed: 65, r: 24, xp: 6, threat: 5, col: 'amber', ai: aiPinwheel, maxAlive: 5 },
+  pinwheel: { hp: 110, speed: 65, r: 24, xp: 6, threat: 5, col: 'amber', ai: aiPinwheel, maxAlive: 3 },
   phantom: { hp: 60, speed: 300, r: 18, xp: 5, threat: 4, col: 'ghost', ai: aiPhantom, noSep: true },
-  ray: { hp: 60, speed: 125, r: 17, xp: 6, threat: 5, col: 'lime', ai: aiRay, maxAlive: 6 },
+  ray: { hp: 60, speed: 125, r: 17, xp: 6, threat: 5, col: 'lime', ai: aiRay, maxAlive: 3 },
   leech: { hp: 70, speed: 165, r: 18, xp: 5, threat: 4, col: 'violet', ai: aiLeech, maxAlive: 4 },
   hive: {
     hp: 240, speed: 55, r: 42, xp: 10, threat: 8, col: 'amber', ai: aiHive, heavy: true, maxAlive: 3,
@@ -400,7 +400,7 @@ export function updateEnemies(g, dt) {
 
     if (!e.faded && !(e.charm > 0) && def.contact !== false && !p.dead) {
       const dx = p.x - e.x, dy = p.y - e.y, rr = e.r + p.r * 0.75;
-      if (dx * dx + dy * dy < rr * rr) g.hurtPlayer(1, e.x, e.y);
+      if (dx * dx + dy * dy < rr * rr) g.hurtPlayer(def.boss ? 2 : 1, e.x, e.y);   // bosses hit twice as hard
     }
   }
 }

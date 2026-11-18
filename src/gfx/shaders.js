@@ -174,6 +174,7 @@ uniform vec3 u_grid;
 uniform vec4 u_ripple[8];   // x, y, radius, amplitude
 uniform vec4 u_well[4];     // x, y, radius, strength
 uniform vec4 u_ring;        // x, y, radius, on
+uniform vec4 u_dark;        // Eclipse darkness: light x, y, radius, amount
 uniform float u_detail;
 out vec4 o;
 
@@ -284,6 +285,14 @@ void main() {
     float dr = length(wp - u_ring.xy) - u_ring.z;
     col += vec3(1.0, 0.15, 0.45) * (exp(-abs(dr) / 6.0) * 1.8 + exp(-abs(dr) / 60.0) * 0.3);
     if (dr > 0.0) col += vec3(0.35, 0.0, 0.08) * (0.4 + 0.3 * sin(u_time * 5.0 - dr * 0.03)) * smoothstep(0.0, 200.0, dr);
+  }
+
+  // the Eclipse swallows everything outside a pool of light around the player
+  if (u_dark.w > 0.0) {
+    float dl = length(wp - u_dark.xy);
+    float lit = smoothstep(u_dark.z * 1.25, u_dark.z * 0.65, dl);
+    col *= 1.0 - u_dark.w * (1.0 - lit);
+    col += vec3(1.0, 0.72, 0.32) * exp(-abs(dl - u_dark.z) / 16.0) * 0.16 * u_dark.w;
   }
 
   o = vec4(col, 1.0);

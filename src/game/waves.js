@@ -54,7 +54,7 @@ export class Waves {
 
     if (this.boss) {
       const idx = n / WAVES_PER_SECTOR - 1;
-      this.bossScale = Math.pow(2.6, Math.floor(idx / 4));
+      this.bossScale = Math.pow(2.6, Math.floor(idx / SECTORS.length));
       const b = spawnBoss(g, idx);
       this.budget = 0;
       this.cap = 6 + n * 0.8;
@@ -65,7 +65,7 @@ export class Waves {
       return;
     }
 
-    this.budget = this.total = 20 + 11 * n + 0.9 * n * n;
+    this.budget = this.total = (20 + 11 * n + 0.9 * n * n) * 0.9;
     this.cap = 14 + 6.5 * n;
     const unlocked = UNLOCK.filter(([, at]) => at <= n).map(([t]) => t);
     const fresh = UNLOCK.find(([, at]) => at === n);
@@ -130,7 +130,7 @@ export class Waves {
     this.spawnT -= dt;
     if (this.boss) {                       // a trickle of adds keeps XP flowing in boss fights
       if (this.spawnT <= 0) {
-        this.spawnT = 3.2;
+        this.spawnT = 2.6;
         if (threat < this.cap && g.enemies.length < 240) this.spawnGroup();
       }
       return;

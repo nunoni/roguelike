@@ -10,7 +10,7 @@ export const SKILLS = [
   { id: 'rate', name: 'Racing Pulse', cat: 'stat', max: 5, desc: '+18% fire rate. Spells cast 9% faster.', lv: (l) => `+${l * 18}% fire rate, +${l * 9}% spell speed` },
   { id: 'pierce', name: 'Piercing Gaze', cat: 'tech', max: 4, desc: 'Hearts pass through one more enemy.', lv: (l) => `Pierce ${l}` },
   { id: 'burst', name: 'Heartburst', cat: 'tech', max: 4, desc: 'Hearts explode on impact.', lv: (l) => `Blast radius ${55 + 15 * l}` },
-  { id: 'burn', name: 'Heartburn', cat: 'tech', max: 4, desc: 'Hits set enemies ablaze. Each hit adds a burn stack and rekindles the flames.', lv: (l) => `${25 * l}% damage/s per stack, up to ${2 + 2 * l} stacks` },
+  { id: 'burn', name: 'Heartburn', cat: 'tech', max: 4, desc: 'Hits set enemies ablaze. Each hit adds a burn stack and rekindles the flames.', lv: (l) => `${20 * l}% damage/s per stack, up to ${2 + l} stacks` },
   { id: 'chill', name: 'Cold Shoulder', cat: 'tech', max: 4, desc: 'Hits chill; enough chill freezes solid.', lv: (l) => `Chill ${Math.round((0.1 + 0.06 * l) * 100)}% per hit` },
   { id: 'chain', name: 'Sparks Fly', cat: 'tech', max: 4, desc: 'Hits can arc lightning to nearby enemies.', lv: (l) => `${Math.round((0.2 + 0.08 * l) * 100)}% chance, ${1 + l} arcs` },
   { id: 'bounce', name: 'Rebound', cat: 'tech', max: 4, desc: 'Hearts ricochet to another enemy.', lv: (l) => `${l} ricochet${l > 1 ? 's' : ''}` },
@@ -31,7 +31,7 @@ export const SKILLS = [
   { id: 'stars', name: 'Shooting Stars', cat: 'spell', max: 4, desc: 'Stars fall on random enemies.', lv: (l) => `Every ${(1.7 - 0.25 * l).toFixed(2)}s` },
   { id: 'beat', name: 'On the Beat', cat: 'tech', max: 4, desc: 'On every beat of the music your next volley always crits and hits harder.', lv: (l) => `Beat volleys +${20 * l}% damage${l >= 3 ? ', +1 heart' : ''}` },
   { id: 'flutter', name: 'Butterflies', cat: 'spell', max: 4, desc: 'Butterflies flutter around you and dart at enemies.', lv: (l) => `${FLUTTER_N[l]} butterflies` },
-  { id: 'envy', name: 'Jealousy', cat: 'tech', max: 4, desc: 'Hits stack Jealousy: the enemy takes more damage from everything.', lv: (l) => `+${(2.5 * l).toFixed(1)}% damage taken per stack, up to 6` },
+  { id: 'envy', name: 'Jealousy', cat: 'tech', max: 4, desc: 'Hits stack Jealousy: the enemy takes more damage from everything.', lv: (l) => `+${(1.5 * l).toFixed(1)}% damage taken per stack, up to 5` },
   { id: 'strings', name: 'Heartstrings', cat: 'tech', max: 4, desc: 'Hits tie enemies together; damage to one also hurts the other.', lv: (l) => `${25 + 10 * (l - 1)}% of damage shared` },
 ];
 
@@ -121,8 +121,8 @@ export function computeStats(L, F, bonusHp = 0) {
     splitMul: 0.3 + 0.1 * l('split'),
     explodeR: l('burst') ? 55 + 15 * l('burst') : 0,
     explodeMul: 0.35 + 0.1 * l('burst'),
-    burn: 0.25 * l('burn'),
-    burnMax: l('burn') ? 2 + 2 * l('burn') : 3,   // fire from fusions still stacks a little
+    burn: 0.2 * l('burn'),
+    burnMax: l('burn') ? 2 + l('burn') : 3,   // fire from fusions still stacks a little
     chill: l('chill') ? 0.1 + 0.06 * l('chill') : 0,
     chainChance: l('chain') ? 0.2 + 0.08 * l('chain') : 0,
     chainN: 1 + l('chain'),
@@ -144,7 +144,7 @@ export function computeStats(L, F, bonusHp = 0) {
     spellRate: 1 + 0.09 * l('rate'),
     beat: l('beat'),
     flutter: FLUTTER_N[l('flutter')] * (F.ballroom ? 2 : 1),
-    envy: 0.025 * l('envy'),
+    envy: 0.015 * l('envy'),
     strings: l('strings') ? 0.25 + 0.1 * (l('strings') - 1) : 0,
     dashCharges: 1 + (l('dash') >= 1 ? 1 : 0) + (l('dash') >= 4 ? 1 : 0),
     dashCd: PLAYER.dashCd * (1 - 0.07 * l('dash')) * (1 - 0.04 * l('speed')),

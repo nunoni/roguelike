@@ -1,6 +1,6 @@
 # Neon Heartstorm
 
-A neon roguelike arena shooter. You fly a heart-shaped ship that fires hearts, fight through 20 waves across 4 sectors and pick upgrades as you level. Max out two partner skills and they **fuse** into something new. Each sector ends with a boss, and beating the last one unlocks endless mode.
+A neon roguelike arena shooter. You fly a heart-shaped ship that fires hearts, fight through 25 waves across 5 sectors and pick upgrades as you level. Max out two partner skills and they **fuse** into something new. Each sector ends with a boss, and beating the last one unlocks endless mode.
 
 Everything is hand-written WebGL2 and WebAudio: no dependencies, no build step, no asset files.
 
@@ -43,11 +43,17 @@ It needs a browser with WebGL2 (any current Firefox, Chrome, Edge or Safari).
 
 From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 
-**Bosses:**
-- **The Monolith:** shield plates, spinning lasers, bullet bursts.
-- **Binary:** twin stars joined by a deadly beam; the survivor enrages.
-- **Ouroboros:** a giant serpent that sheds its tail as it weakens.
-- **The Hollow Heart:** three phases; the last closes the arena in on you.
+**Bosses.** Sectors 1 to 3 each pick one of two bosses per run, so runs differ:
+
+| Sector | Boss |
+|---|---|
+| 1 Azure Drift | **The Monolith** (shield plates, spinning lasers, chasing slams) or **Shatterheart** (a crystal heart that bursts into shards; kill them before they fly home and heal it) |
+| 2 Verdant Rift | **Binary** (twin stars joined by a deadly beam; the survivor enrages) or **The Weaver** (spins a cage of laser threads around you; every anchor you cut wounds it) |
+| 3 Ember Reach | **Ouroboros** (a giant serpent that charges and sheds its tail) or **The Metronome** (attacks on the music's beat: a swinging pendulum and checkerboard floor tiles) |
+| 4 The Hollow | **The Hollow Heart** (three phases; the last closes the arena in on you) |
+| 5 Black Corona | **The Eclipse**, the final boss (swallows the light; it hunts you from the dark, sends decoys, then burns as a diamond ring) |
+
+Touching a boss costs two hearts.
 
 **Skills.** There are 28 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
 - Racing Pulse also makes spells cast faster.
@@ -102,9 +108,9 @@ node tools/sim-test.js --balance 8   # also survey 8 seeded bot runs
 
 The suite checks:
 - the skill and fusion catalogue;
-- a full 20-wave run into endless mode, with every enemy and boss spawning;
+- a full 25-wave run into endless mode, with every enemy and the planned bosses spawning;
 - a build with every skill and fusion active;
-- each boss being beatable;
+- each of the 9 bosses being beatable;
 - no NaNs and bounded entity counts throughout.
 
 ### Debug URL parameters
@@ -114,7 +120,9 @@ These are for development. Add them to the URL, e.g. `index.html?debug&wave=10`.
 | Param | Effect |
 |---|---|
 | `debug` | FPS and entity counters |
-| `wave=N` | Start at wave N (5/10/15/20 are bosses) |
+| `wave=N` | Start at wave N (5/10/15/20/25 are bosses) |
+| `boss=TYPE` | Force a boss for its sector, e.g. `boss=weaver&wave=10` |
+| `skills=a,b` / `fus=x,y` | Start with those skills maxed and those fusions |
 | `god` | Invulnerable |
 | `half` / `max` / `max=beam` | Start with a mid-run build, or every skill and fusion (Love Beam only with `max=beam`) |
 | `stress` | Spawn about 400 enemies |

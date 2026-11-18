@@ -118,7 +118,7 @@ export class Menus {
     const t = $('over-title');
     t.textContent = won ? 'THE VOID IS SILENT' : 'HEARTBROKEN';
     t.classList.toggle('win', won);
-    $('over-sub').textContent = won ? 'You mended the Hollow Heart' : `Fell in sector ${g.sectorIndex + 1}, wave ${g.wave}`;
+    $('over-sub').textContent = won ? 'You outshone the Eclipse' : `Fell in sector ${g.sectorIndex + 1}, wave ${g.wave}`;
     const time = `${Math.floor(g.time / 60)}:${String(Math.floor(g.time) % 60).padStart(2, '0')}`;
     const cell = (v, label, isNew) => `<div class="stat${isNew ? ' new' : ''}"><b>${v}</b><span>${label}${isNew ? ' · best' : ''}</span></div>`;
     $('over-stats').innerHTML =

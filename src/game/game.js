@@ -8,7 +8,7 @@ import { clamp, compact, damp, segDist2, TAU } from '../core/math.js';
 import { computeStats, rollChoices, FUSION_BY_ID } from './upgrades.js';
 import { makePlayer, updatePlayer } from './player.js';
 import { updateEnemies } from './enemies.js';
-import './bosses.js';
+import { rollBossPlan } from './bosses.js';
 import { updateProjectiles, spawnProj, chainFrom } from './weapons.js';
 import { updateSpells } from './spells.js';
 import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
@@ -80,10 +80,12 @@ export class Game {
     this.victoryT = 0;
     this.dmgMul = 1;
     this.ringArena = null;
+    this.dark = null;          // the Eclipse's darkness: { x, y, r, k }
     this.bossName = '';
     this.stat = { dmg: 0, hits: 0, seen: {}, skillsTaken: 0 };
 
     this.waves = new Waves(this);
+    this.bossPlan = rollBossPlan(this.rng);   // which boss guards each sector this run
   }
 
   get wave() { return this.waves.n; }
@@ -262,6 +264,7 @@ export class Game {
     }
     if (e.frozen > 0 && st.fus.absolutezero) dmg *= 1.5;
     if (e.envy > 0) dmg *= 1 + st.envy * e.envy;
+    if (e.armor) dmg *= e.armor;              // Shatterheart while its shards live
     dmg *= this.dmgMul;
     e.hp -= dmg;
     e.flash = 1;
@@ -282,7 +285,7 @@ export class Game {
     // Heartstrings: the tied partner feels part of every hit (never passed on again)
     const tie = st.strings > 0 && !(o && o.shared) ? tiedTo(e) : null;
     if (e.hp <= 0) this.killEnemy(e);
-    if (tie) this.damageEnemy(tie, base * (crit ? st.critMul : 1) * st.strings, SHARED);
+    if (tie) this.damageEnemy(tie, base * (crit ? st.critMul : 1) * st.strings * (tie.boss ? 0.5 : 1), SHARED);
     return dmg;
   }
 
@@ -569,6 +572,22 @@ export class Game {
           }
           break;
         }
+        case 'tile':                       // Metronome floor tile: square, lands on the beat
+          if (z.t >= z.dur) {
+            z.dead = true;
+            this.fx.burst(z.x, z.y, COL.amber, 6, 260, 0.35, 4);
+            this.fx.ring(z.x, z.y, COL.amber, z.r * 0.4, z.r * 1.1, 0.25, 3);
+            if (z.lead) { this.fx.shake(6); this.fx.shock(z.x, z.y, 0.5, 700, 0.4); this.audio.play('explode'); }
+            if (Math.abs(p.x - z.x) < z.r + p.r * 0.4 && Math.abs(p.y - z.y) < z.r + p.r * 0.4) this.hurtPlayer(1, z.x, z.y);
+          }
+          break;
+        case 'web':                        // Weaver silk: lands, then slows you while you stand in it
+          if (z.t >= z.land) {
+            const dx = p.x - z.x, dy = p.y - z.y;
+            if (dx * dx + dy * dy < z.r * z.r) p.slowNext = Math.max(p.slowNext, 0.4);
+          }
+          if (z.t >= z.dur) z.dead = true;
+          break;
         case 'fire':
         case 'trail':
         case 'after':
@@ -685,7 +704,7 @@ export class Game {
     const fx = this.fx;
     for (const b of this.bullets) { b.dead = true; fx.mote(b.x, b.y, COL.bullet, 0.6, 5, 0.5, 200); }
     for (const l of this.lasers) l.dead = true;
-    for (const z of this.zones) if (z.kind === 'blast') z.dead = true;
+    for (const z of this.zones) if (z.kind === 'blast' || z.kind === 'tile' || z.kind === 'web') z.dead = true;
     for (const o of this.enemies) if (!o.dead && !o.boss) { if (o.xp > 0) this.dropXp(o.x, o.y, o.xp); this.killEnemy(o, true); }
     fx.shock(e.x, e.y, 2.6, 1600, 1.3);
     fx.burst(e.x, e.y, COL.white, 120, 1200, 1.4, 8);
@@ -694,6 +713,7 @@ export class Game {
     this.timeScale = 0.2;
     this.hitstop = 0.12;
     this.ringArena = null;
+    this.dark = null;
     this.bossName = '';
     this.audio.play('bossDeath');
     this.score += 5000 * this.wave;

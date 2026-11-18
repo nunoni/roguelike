@@ -133,6 +133,8 @@ export class Renderer {
     const ring = frame.ring;
     gl.uniform4f(bg.u('u_ring'), ring ? ring.x : 0, ring ? ring.y : 0, ring ? ring.r : 0, ring ? 1 : 0);
     gl.uniform1f(bg.u('u_detail'), this.quality.scale < 0.8 ? 0 : 1);
+    const dk = frame.dark;
+    gl.uniform4f(bg.u('u_dark'), dk ? dk.x : 0, dk ? dk.y : 0, dk ? dk.r : 0, dk ? dk.k : 0);
     gl.bindVertexArray(this.emptyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 

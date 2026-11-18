@@ -33,6 +33,7 @@ export const SECTORS = [
   { name: 'VERDANT RIFT', c1: [0.03, 0.3, 0.26], c2: [0.1, 0.12, 0.45], c3: [0.4, 0.9, 0.4], grid: [0.15, 0.9, 0.6] },
   { name: 'EMBER REACH', c1: [0.42, 0.1, 0.05], c2: [0.4, 0.05, 0.3], c3: [1.0, 0.6, 0.2], grid: [1.0, 0.45, 0.2] },
   { name: 'THE HOLLOW', c1: [0.2, 0.03, 0.32], c2: [0.02, 0.02, 0.12], c3: [0.9, 0.2, 0.7], grid: [0.75, 0.25, 1.0] },
+  { name: 'BLACK CORONA', c1: [0.16, 0.1, 0.02], c2: [0.01, 0.01, 0.03], c3: [1.0, 0.75, 0.35], grid: [1.0, 0.7, 0.3] },
 ];
 
 export const PLAYER = {
@@ -52,7 +53,7 @@ export const PLAYER = {
 };
 
 export const WAVES_PER_SECTOR = 5;
-export const FINAL_WAVE = 20;
+export const FINAL_WAVE = 25;
 
 export const xpForLevel = (lvl) => Math.floor(6 + lvl * 4 + lvl * lvl * 0.36);
 

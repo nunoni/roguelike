@@ -12,6 +12,7 @@ import { drawGame } from './game/draw.js';
 import { botInput, botChoose } from './game/bot.js';
 import { SKILLS, FUSIONS } from './game/upgrades.js';
 import { spawnEnemy } from './game/enemies.js';
+import { BOSS_POOLS } from './game/bosses.js';
 import { Hud } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
 
@@ -108,6 +109,10 @@ function boot() {
     if (params.has('half')) {                   // dev: a mid-run build
       for (const s of SKILLS) game.levels[s.id] = Math.floor(s.max / 2);
       game.setStats();
+    }
+    if (params.has('boss')) {                   // dev: ?boss=weaver forces that boss for its sector
+      const b = params.get('boss'), i = BOSS_POOLS.findIndex((pool) => pool.includes(b));
+      if (i >= 0) game.bossPlan[i] = b;
     }
     if (params.has('skills') || params.has('fus')) {   // dev: e.g. ?skills=beat,flutter&fus=ballroom
       for (const id of (params.get('skills') || '').split(',')) {
@@ -213,7 +218,7 @@ function boot() {
     const wells = [];
     for (const z of g.zones) if (z.kind === 'well' && !z.dead) wells.push({ x: z.x, y: z.y, r: z.r, k: 0.55 * Math.min(1, z.t * 3) * Math.min(1, (z.dur - z.t) * 3) });
     renderer.render({
-      cam: g.cam, time: vtime, sector: pal, fx, arena: ARENA, wells, ring: g.ringArena, danger,
+      cam: g.cam, time: vtime, sector: pal, fx, arena: ARENA, wells, ring: g.ringArena, danger, dark: g.dark,
       fade: mode === 'title' ? 0.3 : 0,
       draw: (B, glyphs) => drawGame(g, B, glyphs),
     });

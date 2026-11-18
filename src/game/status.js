@@ -37,7 +37,7 @@ function steamBlast(g, e) {
 /** Jealousy: each stack makes the enemy take more damage from everything. */
 export function envyEnemy(g, e, n = 1) {
   if (e.def.statusImmune) return;
-  e.envy = Math.min(6, (e.envy || 0) + n);
+  e.envy = Math.min(5, (e.envy || 0) + n);
   e.envyT = 4;
 }
 
