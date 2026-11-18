@@ -211,7 +211,8 @@ console.log('arsenal mechanics');
     { name: 'Laser Tag lines', skills: ['pierce', 'bounce'], fus: ['lasertag'], probe: (g, s) => { if (g.tags.length) s.ok = 1; } },
     { name: 'Gold Rush stream', skills: ['magnet', 'steal'], fus: ['goldrush'], probe: (g, s) => { if (g.pickups.some((k) => k.hit && k.hit.length)) s.ok = 1; } },
     { name: 'Heart of Gold decoy', skills: ['shield', 'hp'], fus: ['heartofgold'], probe: (g, s) => { if (g.decoy) s.ok = 1; else if (g.player.shield && g.player.invuln <= 0) g.hurtPlayer(1, g.player.x, g.player.y); } },
-    { name: 'Glow Up nova', skills: ['xp', 'magnet'], fus: ['glowup'], probe: (g, s) => { if (g.stat.glowups > 0) s.ok = 1; } },
+    { name: 'Glow Up nova and glow', skills: ['xp', 'magnet'], fus: ['glowup'], probe: (g, s) => { if (g.stat.glowups > 0 && g.player.glowT > 0 && g.stats.speed > 540) s.ok = 1; } },
+    { name: 'Attraction golden hearts', skills: ['magnet'], fus: [], probe: (g, s) => { if (g.pickups.some((k) => k.big)) s.ok = 1; } },
     { name: 'Running Wild ram', skills: ['dmg', 'speed'], fus: ['runningwild'], probe: (g, s) => { if (g.player.ram) s.ok = 1; } },
   ];
   for (const c of cases) {

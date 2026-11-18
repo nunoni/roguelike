@@ -18,6 +18,9 @@ import { updateArsenal, dropDecoy, goldStream, goldCollect } from './arsenal.js'
 import { updateLoot } from './loot.js';
 import { noteGrave } from './casters.js';
 
+/** Glow Up fires every this fraction of a level's XP, and the glow lasts this long. */
+const GLOW_EVERY = 0.5, GLOW_DUR = 5;
+
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
 const SHARED = { quiet: true, shared: true };
@@ -171,6 +174,10 @@ export class Game {
     updatePlayer(this, input, dt);
     updateSpells(this, input, dt);
     updateArsenal(this, dt);
+    if (this.player.glowT > 0) {                 // Glow Up buff wears off
+      this.player.glowT -= dt;
+      if (this.player.glowT <= 0) this.setStats();
+    }
     this.waves.update(dt);
     updateEnemies(this, dt);
     updateProjectiles(this, dt);
@@ -229,11 +236,17 @@ export class Game {
       this.level++;
       this.xpNeed = xpForLevel(this.level);
       this.pending++;
-      if (this.stats.fus.glowup) this.delayed.push({ t: 0, fn: () => this.glowUp() });
+    }
+    if (this.stats.fus.glowup) {                 // Glow Up: every half level of XP collected
+      this.glowXp = (this.glowXp || 0) + v * this.stats.xpMul;
+      if (this.glowXp >= this.xpNeed * GLOW_EVERY) {
+        this.glowXp = 0;
+        this.delayed.push({ t: 0, fn: () => this.glowUp() });
+      }
     }
   }
 
-  /** Glow Up: every level-up releases a nova and calls in all the XP. */
+  /** Glow Up: a nova that calls in all the XP, then a few seconds of glowing. */
   glowUp() {
     const p = this.player, st = this.stats, fx = this.fx;
     if (p.dead) return;
@@ -243,12 +256,14 @@ export class Game {
       const dx = b.x - p.x, dy = b.y - p.y;
       if (!b.dead && dx * dx + dy * dy < clearR * clearR) { b.dead = true; fx.mote(b.x, b.y, COL.gold, 1, 5, 0.4, 200); }
     }
-    this.explode(p.x, p.y, R, st.damage * (5 + 0.12 * this.level), { col: COL.gold, knock: 380 });
+    this.explode(p.x, p.y, R, st.damage * (8 + 0.25 * this.level), { col: COL.gold, knock: 380 });
     for (const k of this.pickups) if (k.kind === 'xp') k.pull = true;
     fx.shock(p.x, p.y, 1.6, 1100, 0.8);
     fx.ring(p.x, p.y, COL.white, 30, R, 0.45, 5);
     fx.text(p.x, p.y - 56, 'GLOW UP', COL.gold, 15, 1);
     p.invuln = Math.max(p.invuln, 0.6);
+    p.glowT = GLOW_DUR;
+    this.setStats();
   }
 
   openLevelUp() {
@@ -309,6 +324,10 @@ export class Game {
   setStats() {
     this.stats = computeStats(this.levels, this.fusions, this.bonusHp);
     const p = this.player;
+    if (p && p.glowT > 0) {                      // glowing: faster, harder, quicker on your feet
+      const s = this.stats;
+      s.fireRate *= 1.3; s.damage *= 1.3; s.speed *= 1.3;
+    }
     if (this.stats.shield > 0 && !p.shieldInit) { p.shieldInit = true; p.shield = true; }
   }
 
@@ -404,6 +423,11 @@ export class Game {
     this.bomb = Math.min(1, this.bomb + (def.threat || 0.5) * 0.011);
     this.audio.play(e.r >= 28 ? 'killBig' : 'kill');
     if (e.xp > 0) this.dropXp(e.x, e.y, e.xp);
+    if (st.luck2x > 0 && e.xp > 0 && !e.boss && !def.loot && this.rng.chance(st.luck2x)) {
+      const k = this.makePickup(e.x, e.y, 'xp', e.xp);   // Attraction: a golden heart doubles the drop
+      k.big = true;
+      this.pickups.push(k);
+    }
     noteGrave(this, e);
     if (st.steal > 0 && this.rng.chance(st.steal)) this.pickups.push(this.makePickup(e.x, e.y, 'heart', 1));
 

@@ -279,8 +279,10 @@ function boot() {
     if (params.get('scene') !== 'title') startRun();
     const stopAt = params.get('stop');
     const t0 = performance.now();
+    const bossHp = params.has('bosshp') ? Number(params.get('bosshp')) : 0;   // dev: ?bosshp=0.3 starts bosses at that health
     for (let i = 0; i < dev.ff * 60; i++) {
       step(1 / 60);
+      if (bossHp) for (const e of game.enemies) if (e.boss && !e.devHp) { e.devHp = true; e.hp = e.maxHp * bossHp; }
       if (stopAt === 'levelup' && game.state === 'levelup') break;
       if (stopAt === 'dead' && game.state === 'dead') break;
       if (stopAt === 'boss' && game.enemies.some((e) => e.boss && e.spawn <= 0 && e.t > Number(params.get('bosst') || 6))) break;

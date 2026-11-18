@@ -76,6 +76,10 @@ export function botInput(g) {
     const dx = g.ringArena.x - p.x, dy = g.ringArena.y - p.y, d = Math.hypot(dx, dy) || 1;
     if (d > g.ringArena.r - 160) { fx += (dx / d) * 5; fy += (dy / d) * 5; }
   }
+  if (g.dark && !g.dark.hz && Math.hypot(g.dark.x - p.x, g.dark.y - p.y) > g.dark.r * 0.55) {   // Eclipse: stay in the wandering light
+    const dx = g.dark.x - p.x, dy = g.dark.y - p.y, d = Math.hypot(dx, dy) || 1, k = d / g.dark.r;
+    fx += (dx / d) * 6 * k; fy += (dy / d) * 6 * k;
+  }
   if (crowd < 3) {
     let best = null, bd = 700 * 700;
     for (const k of g.pickups) {

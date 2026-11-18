@@ -334,7 +334,11 @@ function drawPickups(g, B, t, vis) {
     if (k.kind === 'xp') {
       const s = 4.5 + Math.min(4, k.val);
       const bob = 1 + 0.08 * Math.sin(t * 7 + k.x * 0.05);
-      if (gold && k.pull) {                      // Gold Rush: a golden stream
+      if (k.big) {                               // Attraction: a golden heart worth double
+        const bs = 11 * bob;
+        B.glow(k.x, k.y, 40, 40, 0, COL.gold, 0.3);
+        B.heart(k.x, k.y, bs, Math.PI / 2, COL.gold, 1, 1.8, 0.55, 0.9, 0);
+      } else if (gold && k.pull) {               // Gold Rush: a golden stream
         const sp = Math.hypot(k.vx, k.vy) || 1;
         B.glow(k.x - k.vx / sp * 14, k.y - k.vy / sp * 14, 26, 6, Math.atan2(k.vy, k.vx), COL.gold, 0.8);
         B.heart(k.x, k.y, (s + 1.5) * bob, Math.PI / 2, COL.gold, 1, 1.2, 0.5, 0.6, 0);
@@ -649,6 +653,12 @@ function drawEnemy(g, B, e, t, beat) {
         B.circle(ex, ey, 4.5 + 4 * fl, fl > 0.2 ? COL.red : COL.gold, 1, 0, 1, 1.3 + fl, 0);
       }
       for (const ey of e.eyes || []) {                       // Blackout: eyes opening in the dark
+        if (ey.bead) {                                       // Baily's Beads: a bright bead that fires its chord
+          const q = clamp(1 + ey.t / 0.6, 0, 1);
+          B.glow(ey.x, ey.y, 50, 50, 0, COL.gold, 0.3 + 0.5 * q);
+          B.circle(ey.x, ey.y, 7 + 5 * q, ey.t > 0.4 ? COL.white : COL.gold, 1, 0, 1, 1.4 + q, 0);
+          continue;
+        }
         const q = clamp(ey.t / 0.6, 0, 1), ea2 = Math.atan2(g.player.y - ey.y, g.player.x - ey.x);
         B.glow(ey.x, ey.y, 70, 40, ea2 + Math.PI / 2, q > 0.7 ? COL.red : COL.gold, 0.25 + 0.5 * q);
         for (const s2 of [-1, 1]) {
@@ -833,6 +843,11 @@ function drawPlayer(g, B, t, beat) {
     B.arc(p.x, p.y, R * 1.75, -Math.PI / 2 + Math.PI * k, Math.PI * clamp(k, 0.02, 1), 1.2, COL.cyan, 0.35, 0);
   }
   if (p.dashT > 0) B.glow(p.x - p.dashDx * 46, p.y - p.dashDy * 46, p.ram ? 160 : 90, p.ram ? 40 : 22, Math.atan2(p.dashDy, p.dashDx), p.ram ? COL.orange : g.stats.fus.comet ? COL.gold : COL.pink, 1.2);
+  if (p.glowT > 0) {                             // Glow Up: a golden shimmer while it lasts
+    const gk = Math.min(1, p.glowT), fl = 0.5 + 0.5 * Math.sin(t * 14);
+    B.glow(p.x, p.y, R * 5, R * 5, 0, COL.gold, (0.25 + 0.15 * fl) * gk);
+    B.ring(p.x, p.y, R * 2.4 + 3 * fl, COL.gold, 0.6 * gk, 1.8, 1);
+  }
   if (st.fus.runningwild && p.heat > 0) {        // Running Wild heat
     const hk = p.heat, fl = 0.5 + 0.5 * Math.sin(t * (p.hot ? 18 : 6));
     B.arc(p.x, p.y, R * 2.1, -Math.PI / 2 + Math.PI * hk, Math.PI * hk, 2, p.hot ? COL.amber : COL.orange, 0.5 + 0.3 * hk, 0.8);

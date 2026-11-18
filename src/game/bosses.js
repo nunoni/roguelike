@@ -847,7 +847,7 @@ function stampTiles(g, e, rage) {
 // hunts from the dark, sends decoys, and finally burns as a diamond ring.
 function aiEclipse(g, e, dt) {
   const p = g.player, f = hpFrac(e);
-  const phase = f > 0.66 ? 1 : f > 0.33 ? 2 : 3;
+  const phase = f > 0.66 ? 1 : f > 0.33 ? 2 : f > 0.1 ? 3 : 4;
   if (phase !== e.phase) {
     e.phase = phase;
     if (phase > 1) {
@@ -856,60 +856,87 @@ function aiEclipse(g, e, dt) {
       g.fx.burst(e.x, e.y, COL.gold, 70, 800, 1, 7, 1);
       g.fx.shake(14);
       g.audio.play('bossRoar');
-      g.ui.banner(phase === 2 ? 'TOTALITY' : 'DIAMOND RING', '', 'warn');
+      g.ui.banner(['', '', 'TOTALITY', 'DIAMOND RING', 'LAST LIGHT'][phase], phase === 2 ? 'the light wanders: stay inside it' : '', 'warn');
     }
     e.state = 0; e.timer = 1.4;
   }
-  // darkness and the pool of light around the player
-  const pulse = phase === 3 ? 0.5 + 0.5 * Math.cos((g.time / BEAT) * Math.PI * 2) : 0;
+  const late = phase >= 3, pace = phase === 4 ? 0.55 : 0.8;   // pauses between attacks
+  // darkness and the pool of light
+  const pulse = late ? 0.5 + 0.5 * Math.cos((g.time / BEAT) * Math.PI * 2) : 0;
   const blk = e.state === 8;
   const target = blk ? 0.97 : phase === 1 ? 0.78 : phase === 2 ? 0.9 : 0.55 + 0.35 * pulse;
   e.darkK = damp(e.darkK, e.spawn > 0 ? 0 : target, blk ? 3 : 1.5, dt);
-  const lightR = blk ? 170 : phase === 2 ? 290 : 380;
+  const lightR = blk ? 170 : phase === 2 ? 290 : phase === 3 ? 360 : 320;
   e.lightR = damp(e.lightR || 600, lightR, 1.2, dt);
-  g.dark = { x: p.x, y: p.y, r: e.lightR, k: e.darkK };
+  // from Totality on the light no longer follows you: it wanders, and the dark hurts
+  if (e.lx === undefined) { e.lx = p.x; e.ly = p.y; }
+  if (phase === 1 || blk) {
+    e.lx = damp(e.lx, p.x, blk ? 6 : 10, dt); e.ly = damp(e.ly, p.y, blk ? 6 : 10, dt);
+  } else {
+    if (!e.wander || Math.hypot(e.wander.x - e.lx, e.wander.y - e.ly) < 30) {
+      const a = g.rng.angle(), d = g.rng.range(300, 650);
+      e.wander = { x: clamp(e.lx + Math.cos(a) * d, -ARENA.hw + 320, ARENA.hw - 320), y: clamp(e.ly + Math.sin(a) * d, -ARENA.hh + 320, ARENA.hh - 320) };
+    }
+    const wx = e.wander.x - e.lx, wy = e.wander.y - e.ly, wd = Math.hypot(wx, wy) || 1;
+    const ws = (phase === 2 ? 85 : 110) * dt;
+    e.lx += (wx / wd) * Math.min(ws, wd); e.ly += (wy / wd) * Math.min(ws, wd);
+    const out = Math.hypot(p.x - e.lx, p.y - e.ly) > e.lightR - 10;
+    if (out && !p.dead) {
+      e.darkT = (e.darkT || 0) + dt;
+      if (e.darkT > 0.4 && !e.darkWarn) { e.darkWarn = true; g.fx.text(p.x, p.y - 50, 'THE DARK BURNS', COL.red, 12, 0.8); }
+      if (e.darkT >= 1.5) { e.darkT = 0.6; g.hurtPlayer(1, e.lx, e.ly); }
+    } else { e.darkT = Math.max(0, (e.darkT || 0) - dt * 2); e.darkWarn = false; }
+  }
+  g.dark = { x: e.lx, y: e.ly, r: e.lightR, k: e.darkK };
   e.reveal = Math.max(0, (e.reveal || 0) - dt * 1.2);
   e.rot += dt * 0.4;
 
   if (e.state !== 2 && e.state !== 3) {           // stalk at the edge of the light
-    e.oa = (e.oa ?? Math.atan2(e.y - p.y, e.x - p.x)) + dt * 0.45 * e.odir;
+    e.oa = (e.oa ?? Math.atan2(e.y - e.ly, e.x - e.lx)) + dt * 0.45 * e.odir;
     const R = e.lightR + 150;
-    steer(e, p.x + Math.cos(e.oa) * R, p.y + Math.sin(e.oa) * R, 260, 2.2, dt);
+    steer(e, e.lx + Math.cos(e.oa) * R, e.ly + Math.sin(e.oa) * R, 260, 2.2, dt);
   }
 
   e.timer -= dt;
   switch (e.state) {
     case 0: {                                   // choose
       if (e.timer > 0) break;
-      const opts = phase === 1 ? [1, 2, 1] : phase === 2 ? [1, 2, 4, 5, 8, 9] : [1, 6, 7, 2, 4, 8, 9];
+      const opts = phase === 1 ? [1, 2, 1, 11] : phase === 2 ? [1, 2, 4, 5, 8, 9, 11] : [1, 6, 7, 2, 4, 8, 9, 10, 10, 11];
       let pick = g.rng.pick(opts);
       if (pick === e.last) pick = g.rng.pick(opts);
       e.last = pick;
-      if (pick === 1) { e.state = 2; e.timer = 0.75; e.count = phase; g.audio.play('telegraph'); }
+      if (pick === 1) { e.state = 2; e.timer = 0.75; e.count = phase + 1; g.audio.play('telegraph'); twinLunge(g, e); }
       else if (pick === 2) { e.state = 4; e.count = phase + 1; e.timer = 0.1; }
       else if (pick === 4) { e.state = 5; e.count = 4 + phase; e.timer = 0.1; }
       else if (pick === 5) {
-        const decoys = g.enemies.filter((o) => o.type === 'umbra' && !o.dead).length;
+        const decoys = g.enemies.filter((o) => o.type === 'umbra' && !o.dead && !o.twin).length;
         for (let i = decoys; i < 2; i++) {
           const a = g.rng.angle(), u = spawnEnemy(g, 'umbra', p.x + Math.cos(a) * (e.lightR + 160), p.y + Math.sin(a) * (e.lightR + 160), { spawn: 0.6, hpScale: 1 });
           u.odir = g.rng.sign();
         }
-        e.state = 0; e.timer = 1.2;
+        e.state = 0; e.timer = 1.2 * pace;
       } else if (pick === 6) {                    // rotating corona lasers
-        const a0 = g.rng.angle(), dir = g.rng.sign();
-        for (let i = 0; i < 4; i++) g.addLaser({ x: e.x, y: e.y, ang: a0 + (i / 4) * TAU, len: 1300, w: 26, warn: 1.2, dur: 3, owner: e, spin: dir * 0.42 });
+        const a0 = g.rng.angle(), dir = g.rng.sign(), n = phase === 4 ? 6 : 4;
+        for (let i = 0; i < n; i++) g.addLaser({ x: e.x, y: e.y, ang: a0 + (i / n) * TAU, len: 1300, w: 26, warn: 1.2, dur: 3, owner: e, spin: dir * 0.42 });
         e.reveal = 1; g.audio.play('charge');
-        e.state = 0; e.timer = 4.2;
+        e.state = 0; e.timer = 4.2 * pace;
       } else if (pick === 8) {                    // Blackout: the light all but goes out
         e.state = 8; e.timer = 3.8; e.eyeT = 0.6;
         g.ui.banner('BLACKOUT', '', 'warn');
         g.audio.play('bossRoar');
-      } else if (pick === 9) {                    // coronal mass ejection: a wall of fire with a gap
+      } else if (pick === 9) {                    // coronal mass ejection: walls of fire with a gap
         wallBullets(g);
-        if (phase === 3) g.delayed.push({ t: 1.6, fn: () => { if (!e.dead) wallBullets(g); } });
+        if (phase >= 2) g.delayed.push({ t: 1.6, fn: () => { if (!e.dead) wallBullets(g); } });
+        if (phase === 4) g.delayed.push({ t: 3.2, fn: () => { if (!e.dead) wallBullets(g); } });
         e.reveal = 1;
         g.audio.play('enemyBurst');
-        e.state = 0; e.timer = phase === 3 ? 3 : 2.4;
+        e.state = 0; e.timer = (phase >= 2 ? 3 : 2.4) * pace;
+      } else if (pick === 10) {                   // Baily's Beads: beads around the light fire chords in turn
+        bailysBeads(g, e);
+        e.state = 0; e.timer = 3.6 * pace;
+      } else if (pick === 11) {                   // Penumbra: rings with a turning gap
+        e.state = 11; e.count = phase === 1 ? 2 : 3 + (phase === 4 ? 1 : 0); e.timer = 0.2;
+        e.gapA = toPlayer(g, e) + g.rng.range(-0.6, 0.6); e.gapDir = g.rng.sign();
       } else {                                    // gravity + spiral arms
         e.state = 7; e.timer = 3.6; e.shotT = 0;
       }
@@ -928,8 +955,8 @@ function aiEclipse(g, e, dt) {
       if (e.timer <= 0) {
         g.ringBullets(e.x, e.y, 12, 230, g.rng.angle());
         e.count--;
-        if (e.count > 0) { e.state = 2; e.timer = 0.6; g.audio.play('telegraph'); }
-        else { e.state = 0; e.timer = phase === 3 ? 0.8 : 1.1; e.odir = g.rng.sign(); }
+        if (e.count > 0) { e.state = 2; e.timer = 0.6; g.audio.play('telegraph'); twinLunge(g, e); }
+        else { e.state = 0; e.timer = (late ? 0.8 : 1.1) * pace; e.odir = g.rng.sign(); }
       }
       break;
     case 4:                                     // corona flares
@@ -939,27 +966,45 @@ function aiEclipse(g, e, dt) {
         e.reveal = 1;
         g.audio.play('enemyBurst');
         e.count--; e.timer = 0.6;
-        if (e.count <= 0) { e.state = 0; e.timer = 1; }
+        if (e.count <= 0) { e.state = 0; e.timer = 1 * pace; }
       }
       break;
     case 5:                                     // slams from the dark
       if (e.timer <= 0) {
         slam(g, 115, 0.45, 0.8, 60);
         e.count--; e.timer = 0.38;
-        if (e.count <= 0) { e.state = 0; e.timer = 0.9; }
+        if (e.count <= 0) { e.state = 0; e.timer = 0.9 * pace; }
       }
       break;
     case 8: {                                   // eyes open in the dark around you, then fire
       e.eyeT -= dt;
       if (e.eyeT <= 0) {
-        e.eyeT = phase === 3 ? 0.42 : 0.55;
+        e.eyeT = late ? 0.42 : 0.55;
         const a = g.rng.angle();
         e.eyes.push({ x: p.x + Math.cos(a) * 330, y: p.y + Math.sin(a) * 330, t: 0 });
         g.audio.play('telegraph');
       }
-      if (e.timer <= 0) { e.state = 0; e.timer = 1.2; }
+      if (e.timer <= 0) { e.state = 0; e.timer = 1.2 * pace; }
       break;
     }
+    case 11:                                    // Penumbra
+      if (e.timer <= 0) {
+        const n = 30, gapN = 5;
+        for (let i = 0; i < n; i++) {
+          const da = (i / n) * TAU;
+          let off = (da - e.gapA) % TAU;
+          if (off > Math.PI) off -= TAU; else if (off < -Math.PI) off += TAU;
+          if (Math.abs(off) < (gapN / n) * Math.PI) continue;
+          g.fireBullet(e.x, e.y, da, 210, { r: 8, life: 7 });
+        }
+        g.fx.ring(e.x, e.y, COL.gold, e.r, e.r * 3, 0.4, 4);
+        e.reveal = 1;
+        g.audio.play('enemyBurst');
+        e.gapA += e.gapDir * 0.75;
+        e.count--; e.timer = 0.55;
+        if (e.count <= 0) { e.state = 0; e.timer = 1.1 * pace; }
+      }
+      break;
     case 7: {                                   // pull you toward it and spiral
       const dx = e.x - p.x, dy = e.y - p.y, dd = Math.hypot(dx, dy) || 1;
       p.pullX += (dx / dd) * 200; p.pullY += (dy / dd) * 200;
@@ -970,20 +1015,46 @@ function aiEclipse(g, e, dt) {
         e.spiral = (e.spiral || 0) + 0.25;
         for (let i = 0; i < 3; i++) g.fireBullet(e.x, e.y, e.spiral + (i / 3) * TAU, 235);
       }
-      if (e.timer <= 0) { e.state = 0; e.timer = 1.2; }
+      if (e.timer <= 0) { e.state = 0; e.timer = 1.2 * pace; }
       break;
     }
   }
   if (e.state !== 2) e.flare = Math.max(0, (e.flare || 0) - dt * 3);
   for (const ey of e.eyes) {
     ey.t += dt;
-    if (ey.t >= 0.6 && !ey.done) {
+    if (ey.t >= 0.6 && !ey.done && !ey.bead) {
       ey.done = true;
       const a = Math.atan2(p.y - ey.y, p.x - ey.x);
       for (let i = -1; i <= 1; i++) g.fireBullet(ey.x, ey.y, a + i * 0.16, 310);
     }
   }
   e.eyes = e.eyes.filter((ey) => ey.t < 0.9);
+}
+
+/** From Totality on, a shadow twin lunges from the opposite side at the same moment. */
+function twinLunge(g, e) {
+  if (e.phase < 2) return;
+  const p = g.player, dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+  const R = clamp(d, 380, 620);
+  const x = clamp(p.x + (dx / d) * R, -ARENA.hw + 60, ARENA.hw - 60), y = clamp(p.y + (dy / d) * R, -ARENA.hh + 60, ARENA.hh - 60);
+  const u = spawnEnemy(g, 'umbra', x, y, { spawn: 0.05, hpScale: 1 });
+  u.twin = true; u.state = 1; u.timer = e.timer; u.flare = 1; u.da = Math.atan2(p.y - y, p.x - x);
+  g.fx.ring(x, y, COL.gold, 20, 90, 0.4, 3);
+}
+
+/** Baily's Beads: eight beads ring the light and, one after another, fire a chord across it. */
+function bailysBeads(g, e) {
+  const R = e.lightR * 0.92, a0 = g.rng.angle(), dir = g.rng.sign(), n = 8, skip = 3;
+  for (let i = 0; i < n; i++) {
+    const a = a0 + dir * (i / n) * TAU, b = a + dir * (skip / n) * TAU;
+    const x1 = e.lx + Math.cos(a) * R, y1 = e.ly + Math.sin(a) * R;
+    const x2 = e.lx + Math.cos(b) * R, y2 = e.ly + Math.sin(b) * R;
+    const ang = Math.atan2(y2 - y1, x2 - x1), len = Math.hypot(x2 - x1, y2 - y1);
+    g.addLaser({ x: x1 - Math.cos(ang) * 200, y: y1 - Math.sin(ang) * 200, ang, len: len + 400, w: 24, warn: 0.9 + i * 0.28, dur: 0.3 });
+    e.eyes.push({ x: x1, y: y1, t: -(0.3 + i * 0.28), bead: true });
+  }
+  e.reveal = 1;
+  g.audio.play('charge');
 }
 
 /** A wall of bullets from the roomiest side of the arena, with one gap near the player. */
@@ -1019,7 +1090,10 @@ function aiUmbra(g, e, dt) {
     if (e.timer <= 0) { e.state = 2; e.timer = 0.5; }
   } else {
     e.vx = Math.cos(e.da) * 1100; e.vy = Math.sin(e.da) * 1100;
-    if (e.timer <= 0) { e.state = 0; e.timer = g.rng.range(2.5, 4); e.flare = 0; }
+    if (e.timer <= 0) {
+      if (e.twin) { g.killEnemy(e, true); return; }    // a twin is only a shadow of one lunge
+      e.state = 0; e.timer = g.rng.range(2.5, 4); e.flare = 0;
+    }
   }
   if (e.state !== 1) e.flare = Math.max(0, (e.flare || 0) - dt * 3);
 }
@@ -1092,7 +1166,7 @@ Object.assign(DEFS, {
     init(g, e) { e.beat = -1; e.bar = 0; e.pend = null; e.pend2 = null; e.rb = []; e.timer = 1; },
   },
   eclipse: {
-    ...bossBase, name: 'THE ECLIPSE', hp: 140000, speed: 260, r: 66, xp: 500, col: 'gold', score: 15000, ai: aiEclipse,
+    ...bossBase, name: 'THE ECLIPSE', hp: 200000, speed: 260, r: 66, xp: 500, col: 'gold', score: 15000, ai: aiEclipse,
     init(g, e) { e.phase = 0; e.timer = 2.5; e.darkK = 0; e.odir = 1; e.last = 0; e.eyes = []; },
     onDeath(g, e) { g.dark = null; for (const u of g.enemies) if (u.type === 'umbra' && !u.dead) g.killEnemy(u, true); },
   },

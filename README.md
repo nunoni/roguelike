@@ -70,7 +70,7 @@ Hazards pause during boss fights.
 | 2 | **Binary** (twin stars joined by a deadly tether that sheds bullet walls and scissors shut; the survivor enrages) or **The Weaver** (a tightening cage of laser threads, chained pounces when enraged, and egg sacs that hatch in a splash of web) |
 | 3 | **Ouroboros** (charges, mines, and coils around you) or **The Metronome** (on the beat: pendulum lasers, checkerboard tiles, and bullets that only move on the beat) |
 | 4 | **The Hollow Heart** (three phases: seeking hearts, gapped rings, a Flatline wall to ride through, a closing arena) |
-| 5 | **The Eclipse**, the final boss (hunts you from the dark, Blackouts, walls of coronal fire, then burns as a diamond ring) |
+| 5 | **The Eclipse**, the final boss (hunts you from the dark; from Totality the light wanders and the dark burns you, a shadow twin lunges with it, Penumbra rings, Blackouts and walls of coronal fire; then Baily's Beads as a diamond ring, and a frantic Last Light below 10%) |
 
 Touching a boss costs two hearts.
 
@@ -80,6 +80,7 @@ Touching a boss costs two hearts.
 - **Spell Power:** every level you put into a spell (Heartbeat, Guardian Hearts, Irresistible, Skip a Beat, Shooting Stars, Butterflies, The Ex, Rose Whip, Mirror Ball, Love Letter) makes all your spells 5% stronger, so spell builds stack up like shooting builds do.
 - Burn stacks with every hit.
 - Sweetheart is pure XP (+15% per level) for keeping up in the late sectors.
+- Attraction gives kills a 7% chance per level to drop a golden heart worth double XP.
 
 The newest four are their own kinds of attack: **The Ex** (a boomerang heart that always comes back), **Rose Whip** (a thorny lash whose swing snags the closest bullets), **Mirror Ball** (a disco ball that scatters hearts fired through it into light beams) and **Love Letter** (an envelope that drifts into a crowd and bursts into a spiral of hearts).
 
@@ -107,10 +108,10 @@ Each skill except Sweetheart has a **signature partner**:
 There are also 20 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire, Heartache, and five that add brand-new mechanics:
 - **Cupid's Quiver** (Cupid's Aim + Heartbreak): halves stick into enemies like arrows, then all rip out at once.
 - **Laser Tag** (Piercing Gaze + Rebound): every pierce and ricochet draws a burning laser between hit points.
-- **Gold Rush** (Attraction + Stolen Heart): XP flying to you cuts through enemies; every 150 XP drops a heart.
+- **Gold Rush** (Attraction + Stolen Heart): a much wider pickup range, XP flying to you cuts through enemies; every 150 XP drops a heart.
 - **Heart of Gold** (Guarded Heart + Big Heart): a broken barrier leaves a golden decoy that enemies chase and shoot, then it explodes.
 - **Running Wild** (Passion + Lighthearted): moving builds heat; a full bar turns your dash into a flaming ram.
-- **Glow Up** (Sweetheart + Attraction): every level-up releases a nova that wipes nearby bullets, blasts enemies and pulls in all XP on the map.
+- **Glow Up** (Sweetheart + Attraction): every half level of XP you collect releases a nova that wipes nearby bullets, blasts enemies and pulls in all XP on the map, and you glow for 5s (+30% fire rate, damage and move speed).
 
  Each skill can only be spent on **one** fusion per run, so when two are ready at once you have to choose.
 
@@ -157,6 +158,7 @@ These are for development. Add them to the URL, e.g. `index.html?debug&wave=10`.
 | `debug` | FPS and entity counters |
 | `wave=N` | Start at wave N (5/10/15/20/25 are bosses) |
 | `boss=TYPE` | Force a boss for its sector, e.g. `boss=weaver&wave=10` |
+| `bosshp=F` | With `ff`, bosses start at that fraction of their health, e.g. `wave=25&bosshp=0.2&ff=40` |
 | `sector=ID` | Play that sector, e.g. `sector=storm&wave=12` (ids: azure, verdant, crystal, ember, storm, hollow, tidal, corona) |
 | `route=a,b,c` | Fix the sectors after the first, e.g. `route=crystal,storm,tidal` |
 | `skills=a,b` / `fus=x,y` | Start with those skills maxed and those fusions |
