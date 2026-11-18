@@ -126,9 +126,19 @@ console.log('full run (god mode, bot-chosen build)');
   const t0 = Date.now();
   const plan = [...g.bossPlan];
   let gates = 0, routeAt21 = null;
+  const caster = { guarded: 0, ghost: 0, song: 0 };
   const r = run(g, {
     until: (g) => g.wave >= FINAL_WAVE + 2, maxSeconds: 4200,
-    onFrame: (g) => { if (g.gates && g.gates[0].t === 0) gates++; if (g.wave === 21 && !routeAt21) routeAt21 = [...g.route]; },
+    onFrame: (g, f) => {
+      if (g.gates && g.gates[0].t === 0) gates++;
+      if (g.wave === 21 && !routeAt21) routeAt21 = [...g.route];
+      if (f % 10 === 0) for (const e of g.enemies) {
+        if (e.dead) continue;
+        if (e.guardT > 0) caster.guarded++;
+        if (e.ghost) caster.ghost++;
+        if (e.type === 'siren' && e.state === 1) caster.song++;
+      }
+    },
   });
   const ms = Date.now() - t0;
   check(!r.err, 'no NaN / infinite values' + (r.err ? ': ' + r.err : ''));
@@ -138,6 +148,7 @@ console.log('full run (god mode, bot-chosen build)');
   for (const b of plan) check(g.stat.seen[b] > 0, `spawned planned boss ${b}`);
   check(plan.every((b, i) => BOSS_POOLS[i].includes(b)), `boss plan drawn from the pools (${plan})`);
   check(gates >= 3, `warp gates opened after the branching bosses (${gates})`);
+  check(caster.guarded > 0 && caster.ghost > 0 && caster.song > 0, `chaperones guard, mourners raise ghosts, sirens sing (${JSON.stringify(caster)})`);
   check(g.stat.seen.jar >= 5 && g.stat.jars >= 3, `love jars turn up and get broken (${g.stat.seen.jar} seen, ${g.stat.jars} broken)`);
   check(routeAt21 && routeAt21.length === 5 && routeAt21.every((id, i) => ROUTE_TIERS[i].includes(id)), `route follows the tiers (${routeAt21})`);
   check(g.route.length >= 6, `endless keeps extending the route (${g.route.join(',')})`);

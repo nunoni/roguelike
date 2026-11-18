@@ -66,8 +66,8 @@ function breakJar(g, e) {
       fx.text(e.x, e.y - 40, '+XP', COL.teal, 16, 1.1);
       break;
     case 'heal':
-      drop('heart', 2, 1);
-      fx.text(e.x, e.y - 40, '+♥♥', COL.rose, 16, 1.1);
+      drop('heart', 1, 1);
+      fx.text(e.x, e.y - 40, '+♥', COL.rose, 16, 1.1);
       break;
     case 'level':
       g.pending++;
@@ -76,7 +76,7 @@ function breakJar(g, e) {
     case 'jackpot':
       g.pending++;
       xpPile();
-      drop('heart', 2, 1);
+      drop('heart', 1, 1);
       g.bomb = 1;
       fx.text(e.x, e.y - 40, 'JACKPOT!', COL.gold, 22, 1.6);
       fx.shock(e.x, e.y, 1.2, 800, 0.6);

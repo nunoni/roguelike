@@ -16,6 +16,7 @@ import { Waves } from './waves.js';
 import { updateHazards, clearHazards } from './hazards.js';
 import { updateArsenal, dropDecoy, goldStream, goldCollect } from './arsenal.js';
 import { updateLoot } from './loot.js';
+import { noteGrave } from './casters.js';
 
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
@@ -57,6 +58,7 @@ export class Game {
     this.tags = [];         // Laser Tag lines
     this.mirror = null;     // Mirror Ball
     this.decoy = null;      // Heart of Gold decoy
+    this.graves = [];       // recent deaths a Mourner can raise
     this.lastHit = null;    // Heartstrings ties new hits to this enemy
     this.beatN = 0;         // beat clock, shared with the ship's pulse and the music tempo
     this.onBeat = false;    // true on the frame a new beat starts
@@ -330,6 +332,22 @@ export class Game {
   // ------------------------------------------------------------------ combat
   damageEnemy(e, dmg, o) {
     if (e.dead || e.spawn > 0 || e.faded) return 0;
+    if (e.guardT > 0 && e.guard && !e.guard.dead) {   // a Chaperone's link: untouchable
+      if (this.time - (e.blockFx || 0) > 0.15) {
+        e.blockFx = this.time;
+        this.fx.ring(e.x, e.y, COL.gold, e.r * 1.2, e.r * 1.9, 0.2, 2);
+      }
+      return 0;
+    }
+    if (e.elite === 'blink' && !(e.blinkCd > 0) && e.hp > dmg) {   // Blinker: sidesteps the next shots
+      e.blinkCd = 1.6;
+      const p = this.player, a = Math.atan2(e.y - p.y, e.x - p.x) + (this.rng.chance(0.5) ? 1 : -1) * Math.PI / 2;
+      this.fx.burst(e.x, e.y, COL.violet, 10, 260, 0.35, 3);
+      this.fx.ring(e.x, e.y, COL.violet, e.r, e.r * 2, 0.25, 2);
+      e.x = clamp(e.x + Math.cos(a) * 150, -ARENA.hw + e.r, ARENA.hw - e.r);
+      e.y = clamp(e.y + Math.sin(a) * 150, -ARENA.hh + e.r, ARENA.hh - e.r);
+      e.flash = 1;
+    }
     if (e.transfer) {                       // body segments forward part of the hit to the head
       e.flash = 1;
       return e.transfer.dead ? 0 : this.damageEnemy(e.transfer, dmg * 0.3, o);
@@ -386,6 +404,7 @@ export class Game {
     this.bomb = Math.min(1, this.bomb + (def.threat || 0.5) * 0.011);
     this.audio.play(e.r >= 28 ? 'killBig' : 'kill');
     if (e.xp > 0) this.dropXp(e.x, e.y, e.xp);
+    noteGrave(this, e);
     if (st.steal > 0 && this.rng.chance(st.steal)) this.pickups.push(this.makePickup(e.x, e.y, 'heart', 1));
 
     if (def.onDeath) def.onDeath(this, e);

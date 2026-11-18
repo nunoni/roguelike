@@ -6,12 +6,14 @@ import { clamp } from '../core/math.js';
 import { DEFS, spawnEnemy } from './enemies.js';
 import { spawnBoss } from './bosses.js';
 import { resetHazards, clearHazards } from './hazards.js';
+import './casters.js';
 
 export const UNLOCK = [
   ['drifter', 1], ['mote', 2], ['lancer', 3], ['spitter', 4], ['splitter', 6], ['bomber', 7], ['warden', 8],
-  ['pinwheel', 9], ['phantom', 11], ['ray', 12], ['leech', 13], ['hive', 14], ['wyrm', 16],
+  ['pinwheel', 9], ['phantom', 11], ['chaperone', 11], ['ray', 12], ['leech', 13], ['hive', 14], ['wyrm', 16],
+  ['siren', 17], ['mourner', 19],
 ];
-const ELITES = ['swift', 'armored', 'volatile', 'regen'];
+const ELITES = ['swift', 'armored', 'volatile', 'regen', 'blink', 'frenzied'];
 
 export class Waves {
   constructor(g) {
@@ -48,7 +50,8 @@ export class Waves {
     this.vacuum = false;
     this.spawnT = 0.6;
     const w = n - 1;
-    this.hpScale = (1 + 0.22 * w + 0.056 * w * w) * (n > FINAL_WAVE ? Math.pow(1.25, n - FINAL_WAVE) : 1);
+    this.hpScale = (1 + 0.22 * w + 0.056 * w * w) * (1 + 0.022 * Math.max(0, Math.min(n, FINAL_WAVE) - 12))
+      * (n > FINAL_WAVE ? Math.pow(1.25, n - FINAL_WAVE) : 1);
     this.spdScale = 1 + Math.min(0.35, 0.012 * w) + (n > FINAL_WAVE ? Math.min(0.4, 0.02 * (n - FINAL_WAVE)) : 0);
     this.boss = n % WAVES_PER_SECTOR === 0;
     const sector = g.sector;
@@ -71,13 +74,15 @@ export class Waves {
     this.cap = 14 + 6.5 * n;
     const unlocked = UNLOCK.filter(([, at]) => at <= n).map(([t]) => t);
     const fresh = UNLOCK.find(([, at]) => at === n);
-    const mix = [[n >= 2 && rng.chance(0.4) ? 'mote' : 'drifter', 4]];
+    // later waves lean on the complex enemies instead of the basic swarm
+    const basic = n <= 12 ? 4 : Math.max(1.8, 4 - 0.18 * (n - 12));
+    const mix = [[n >= 2 && rng.chance(0.4) ? 'mote' : 'drifter', basic]];
     if (fresh) mix.push([fresh[0], 3.5]);
-    const others = unlocked.filter((t) => !mix.some((m) => m[0] === t));
-    const extra = Math.min(others.length, n < 4 ? 1 : n < 10 ? 2 : 3);
+    const others = unlocked.filter((t) => !mix.some((m) => m[0] === t) && (n < 12 || (t !== 'drifter' && t !== 'mote')));
+    const extra = Math.min(others.length, n < 4 ? 1 : n < 10 ? 2 : n < 18 ? 3 : 4);
     for (let i = 0; i < extra; i++) {
       const t = others.splice(Math.floor(rng.next() * others.length), 1)[0];
-      mix.push([t, 2]);
+      mix.push([t, n >= 18 ? 2.5 : 2]);
     }
     this.mix = mix;
     const first = (n - 1) % WAVES_PER_SECTOR === 0;
@@ -98,7 +103,7 @@ export class Waves {
     // clamped spawns can land on the player near walls: push them back out
     let sx = cx, sy = cy;
     if (Math.hypot(sx - p.x, sy - p.y) < 380) { sx = clamp(p.x - Math.cos(a) * d, -ARENA.hw + 80, ARENA.hw - 80); sy = clamp(p.y - Math.sin(a) * d * 0.75, -ARENA.hh + 80, ARENA.hh - 80); }
-    const eliteChance = this.n >= 6 ? Math.min(0.16, 0.03 + 0.008 * (this.n - 6)) : 0;
+    const eliteChance = this.n >= 6 ? Math.min(0.2, 0.03 + 0.008 * (this.n - 6) + 0.006 * Math.max(0, this.n - 14)) : 0;
     let cost = 0;
     for (let i = 0; i < count; i++) {
       const x = clamp(sx + rng.range(-70, 70), -ARENA.hw + 40, ARENA.hw - 40);

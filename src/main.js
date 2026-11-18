@@ -11,7 +11,7 @@ import { Game } from './game/game.js';
 import { drawGame } from './game/draw.js';
 import { botInput, botChoose } from './game/bot.js';
 import { SKILLS, FUSIONS } from './game/upgrades.js';
-import { spawnEnemy } from './game/enemies.js';
+import { spawnEnemy, DEFS } from './game/enemies.js';
 import { BOSS_POOLS } from './game/bosses.js';
 import { Hud } from './ui/hud.js';
 import { Menus } from './ui/menus.js';
@@ -131,6 +131,17 @@ function boot() {
       if (ti >= 0) game.route = [...ROUTE_TIERS.slice(0, ti).map((t, i) => game.route[i] || t[0]), id];
     }
     if (params.has('wave')) { game.waves.n = Number(params.get('wave')) - 1; game.waves.timer = 0.5; }
+    if (params.has('spawn')) {                  // dev: ?spawn=chaperone,drifter*4,siren puts those enemies around you
+      let k = 0;
+      for (const item of params.get('spawn').split(',')) {
+        const [type, n] = item.split('*');
+        if (!DEFS[type]) continue;
+        for (let i = 0; i < (Number(n) || 1); i++, k++) {
+          const a = k * 2.4, d = 300 + (k % 3) * 90;
+          spawnEnemy(game, type, Math.cos(a) * d, Math.sin(a) * d, { spawn: 0.5 });
+        }
+      }
+    }
     if (params.has('stress')) {
       for (let i = 0; i < 400; i++) spawnEnemy(game, ['drifter', 'mote', 'spitter', 'splitter'][i % 4], (Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 2000, {});
     }

@@ -40,10 +40,15 @@ It needs a browser with WebGL2 (any current Firefox, Chrome, Edge or Safari).
 - **Leech** tethers to you and drains.
 - **Hive** births Motes.
 - **Wyrm** is a segmented serpent; only its head can be hurt.
+- **Chaperone** tethers up to 4 nearby enemies with gold links: linked enemies can't be hurt and move faster until you kill it.
+- **Siren** sings in pulses that drag you toward her. Dash to break the song.
+- **Mourner** raises ghost copies of enemies that died nearby.
 
-From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
+From wave 6, elite variants (Swift, Armored, Volatile, Regenerating, Blinker, Frenzied) can appear, and they get more common later. Blinkers teleport sideways when hit; Frenzied elites speed up as they lose health.
 
-**Love Jars.** Now and then a jar appears during a normal wave (there's an arrow pointing to it). Break it before it fades for a roll: a pile of XP (55%), two healing hearts (30%, XP instead if you're at full health), an instant level-up (12%) or the jackpot (3%: level-up, XP, hearts and a full Love Bomb).
+Later waves also get smarter rather than just tougher: from wave 12 Drifters start flanking and surrounding you (more of them as waves go on), from wave 14 Lancers aim where you're heading, from wave 16 Spitters lead their shots, and the basic swarm gives way to more of the complex enemies.
+
+**Love Jars.** Now and then a jar appears during a normal wave (there's an arrow pointing to it). Break it before it fades for a roll: a pile of XP (55%), a healing heart (30%, XP instead if you're at full health), an instant level-up (12%) or the jackpot (3%: level-up, XP, a heart and a full Love Bomb).
 
 **Sectors and the route.** A run crosses 5 tiers of 5 waves. After each boss, two **warp gates** open; fly into one to choose the next sector. Every sector has its own hazard, and each one is as much a weapon as a threat:
 
@@ -61,8 +66,8 @@ Hazards pause during boss fights.
 
 | Tier | Boss |
 |---|---|
-| 1 | **The Monolith** (shield plates it hurls at you, spinning lasers, chasing slams; enraged, it falls from the sky) or **Shatterheart** (bursts into shards that heal it if they fly home; locks you in a crystal prison) |
-| 2 | **Binary** (twin stars joined by a deadly tether that sheds bullet walls and scissors shut; the survivor enrages) or **The Weaver** (a cage of laser threads, pounces, and egg sacs that hatch) |
+| 1 | **The Monolith** (shield plates it hurls at you, spinning lasers, chasing slams; enraged, it falls from the sky) or **Shatterheart** (bursts into lance-throwing shards that heal it if they fly home; crystal prisons and spinning Shatter Storms) |
+| 2 | **Binary** (twin stars joined by a deadly tether that sheds bullet walls and scissors shut; the survivor enrages) or **The Weaver** (a tightening cage of laser threads, chained pounces when enraged, and egg sacs that hatch in a splash of web) |
 | 3 | **Ouroboros** (charges, mines, and coils around you) or **The Metronome** (on the beat: pendulum lasers, checkerboard tiles, and bullets that only move on the beat) |
 | 4 | **The Hollow Heart** (three phases: seeking hearts, gapped rings, a Flatline wall to ride through, a closing arena) |
 | 5 | **The Eclipse**, the final boss (hunts you from the dark, Blackouts, walls of coronal fire, then burns as a diamond ring) |
@@ -156,6 +161,7 @@ These are for development. Add them to the URL, e.g. `index.html?debug&wave=10`.
 | `skills=a,b` / `fus=x,y` | Start with those skills maxed and those fusions |
 | `god` | Invulnerable |
 | `half` / `max` / `max=beam` | Start with a mid-run build, or every skill and fusion (Love Beam only with `max=beam`) |
+| `spawn=a,b*3` | Spawn those enemies around you at the start, e.g. `spawn=chaperone,drifter*4` |
 | `stress` | Spawn about 400 enemies |
 | `bot` | Let the autopilot play |
 | `seed=N` | Deterministic run |

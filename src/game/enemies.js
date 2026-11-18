@@ -33,7 +33,7 @@ export function spawnEnemy(g, type, x, y, o = {}) {
   };
   if (o.elite && !def.boss && !def.noElite) {
     e.elite = o.elite;
-    e.hp = e.maxHp = e.hp * (o.elite === 'armored' ? 4 : 2.2);
+    e.hp = e.maxHp = e.hp * (o.elite === 'armored' ? 4 : o.elite === 'blink' ? 1.6 : o.elite === 'frenzied' ? 1.8 : 2.2);
     if (o.elite === 'swift') e.speed *= 1.5;
     e.r *= 1.15;
     e.xp *= 4;
@@ -47,7 +47,13 @@ export function spawnEnemy(g, type, x, y, o = {}) {
 
 // ------------------------------------------------------------------ AI
 function aiDrifter(g, e, dt) {
-  steer(e, g.player.x, g.player.y, e.speed, 3, dt);
+  const p = g.player;
+  if (e.flank === undefined) e.flank = g.wave >= 12 && g.rng.chance(Math.min(0.6, 0.3 + 0.03 * (g.wave - 12))) ? g.rng.range(0.5, 0.9) * g.rng.sign() : 0;
+  const d = Math.hypot(p.x - e.x, p.y - e.y);
+  if (e.flank && d > 150) {                  // late waves: swing round to your side and close the ring
+    const a = Math.atan2(e.y - p.y, e.x - p.x) + e.flank * 0.5, R = d * 0.78;
+    steer(e, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, e.speed, 3, dt);
+  } else steer(e, p.x, p.y, e.speed, 3, dt);
   e.rot = Math.atan2(e.vy, e.vx);
 }
 
@@ -67,7 +73,11 @@ function aiLancer(g, e, dt) {
     if (d < 430 && e.timer <= 0) { e.state = 1; e.timer = 0.7; g.audio.play('telegraph'); }
   } else if (e.state === 1) {                // aim (telegraph)
     brake(e, 8, dt);
-    if (e.timer > 0.2) e.rot = turnToward(e.rot, toPlayer(g, e), 5 * dt);
+    if (e.timer > 0.2) {
+      // from wave 12 they aim where you are going, not where you are
+      const lead = g.wave >= 14 ? Math.min(0.35, distPlayer(g, e) / 1250) : 0;
+      e.rot = turnToward(e.rot, Math.atan2(p.y + p.vy * lead - e.y, p.x + p.vx * lead - e.x), 5 * dt);
+    }
     if (e.timer <= 0) { e.state = 2; e.timer = 0.42; g.audio.play('lunge'); }
   } else if (e.state === 2) {                // dash
     e.vx = Math.cos(e.rot) * 1250; e.vy = Math.sin(e.rot) * 1250;
@@ -90,7 +100,9 @@ function aiSpitter(g, e, dt) {
   if (e.timer <= 0 && d < 760) {
     e.timer = g.wave >= 9 ? 2.4 : 2.1;
     const n = g.wave >= 9 ? 3 : 1;
-    for (let i = 0; i < n; i++) g.fireBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a + (i - (n - 1) / 2) * 0.2, 390);
+    const lead = g.wave >= 16 ? (d / 390) * 0.6 : 0;   // later spitters lead their shots
+    const sa = lead ? Math.atan2(p.y + p.vy * lead - e.y, p.x + p.vx * lead - e.x) : a;
+    for (let i = 0; i < n; i++) g.fireBullet(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, sa + (i - (n - 1) / 2) * 0.2, 390);
     g.audio.play('enemyShot');
     if (g.rng.chance(0.3)) e.dir = -e.dir;
   }
@@ -363,6 +375,7 @@ export function updateEnemies(g, dt) {
     e.t += dt;
     if (!updateStatus(g, e, dt)) continue;
     if (e.elite === 'regen' && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.03 * dt);
+    if (e.blinkCd > 0) e.blinkCd -= dt;
 
     if (e.frozen > 0) {
       e.frozen -= dt;
@@ -375,6 +388,11 @@ export function updateEnemies(g, dt) {
       edt = dt * (1 - 0.6 * Math.min(1, e.chill));
       e.chill = Math.max(0, e.chill - 0.12 * dt);
     }
+    if (e.guardT > 0) {                        // guarded by a Chaperone: 25% faster
+      e.guardT -= dt;
+      if (e.guardT <= 0 || !e.guard || e.guard.dead) { e.guardT = 0; e.guard = null; } else edt *= 1.25;
+    }
+    if (e.elite === 'frenzied') edt *= 1 + 0.75 * (1 - e.hp / e.maxHp);   // faster the more it bleeds
     const def = e.def;
     if (e.charm > 0) aiCharmed(g, e, edt);
     else if (g.decoy && !e.boss && (e.x - g.decoy.x) ** 2 + (e.y - g.decoy.y) ** 2 < 1100 * 1100) {

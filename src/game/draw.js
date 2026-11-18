@@ -10,7 +10,8 @@ function tint(c, w, k) {
 }
 const ENVY = [0.45, 1.0, 0.35];
 const BUTTERFLY = [0.55, 0.3, 1.0];
-const ELITE_COL = { swift: COL.white, armored: COL.blue, volatile: COL.red, regen: COL.lime };
+const XP_PINK = [1.0, 0.5, 0.78];
+const ELITE_COL = { swift: COL.white, armored: COL.blue, volatile: COL.red, regen: COL.lime, blink: COL.violet, frenzied: COL.orange };
 
 export function drawGame(g, B, glyphs) {
   const t = g.time, cam = g.cam;
@@ -314,13 +315,20 @@ function drawPickups(g, B, t, vis) {
     if (k.dead || !vis(k.x, k.y)) continue;
     if (k.kind === 'xp') {
       const s = 4.5 + Math.min(4, k.val);
+      const bob = 1 + 0.08 * Math.sin(t * 7 + k.x * 0.05);
       if (gold && k.pull) {                      // Gold Rush: a golden stream
         const sp = Math.hypot(k.vx, k.vy) || 1;
         B.glow(k.x - k.vx / sp * 14, k.y - k.vy / sp * 14, 26, 6, Math.atan2(k.vy, k.vx), COL.gold, 0.8);
-        B.box(k.x, k.y, s + 1, s + 1, t * 6, COL.gold, 1, 1.4, 0.8, 1.2, 0, 1);
-      } else B.box(k.x, k.y, s, s, t * 3 + k.x * 0.01, COL.teal, 1, 1.4, 0.7, 1, 0, 1);
-    } else if (k.kind === 'heart') {
-      B.heart(k.x, k.y, 13 + Math.sin(t * 6) * 2, Math.PI / 2, COL.rose, 1, 2, 0.7, 1);
+        B.heart(k.x, k.y, (s + 2) * bob, Math.PI / 2, COL.gold, 1, 1.4, 0.85, 1.2, 0);
+      } else {                                   // XP: little upright pink hearts
+        B.heart(k.x, k.y, (s + 2) * bob, Math.PI / 2, XP_PINK, 1, 1.2, 0.85, 0.9, 0);
+        B.heart(k.x, k.y - 0.5, (s + 2) * 0.4, Math.PI / 2, COL.white, 0.9, 0, 1, 0.5, 0);
+      }
+    } else if (k.kind === 'heart') {             // healing: a big red heart with a white cross
+      const hs = 14 + Math.sin(t * 6) * 2;
+      B.glow(k.x, k.y, 46, 46, 0, COL.red, 0.35);
+      B.heart(k.x, k.y, hs, Math.PI / 2, COL.red, 1, 2.4, 0.8, 1.2);
+      B.plus(k.x, k.y - 1, hs * 0.38, 0, COL.white, 1, 0, 1, 0.8, 0);
     } else {
       const s = 26 + Math.sin(t * 5) * 3;
       B.ring(k.x, k.y, 44 + Math.sin(t * 3) * 4, COL.gold, 0.7, 2, 1);
@@ -353,8 +361,14 @@ function drawEnemy(g, B, e, t, beat) {
   if (e.charm > 0) c = COL.rose;
   else if (e.frozen > 0) c = COL.ice;
   else if (e.chill > 0.05) c = tint(base, COL.ice, Math.min(1, e.chill * 1.3)).slice();
+  if (e.ghost) { c = tint(c, COL.ghost, 0.6).slice(); a *= 0.6 + 0.15 * Math.sin(t * 6 + e.seed * 9); }
   if (e.flash > 0) c = tint(c, COL.white, e.flash).slice();
   const x = e.x, y = e.y, r = e.r, rot = e.rot;
+  if (e.guardT > 0 && e.guard && !e.guard.dead) {     // a Chaperone's link: a gold shield
+    const g2 = e.guard, fl = 0.6 + 0.4 * Math.sin(t * 10 + e.seed * 7);
+    B.line(g2.x, g2.y, x, y, 1.6, COL.gold, 0.35 + 0.2 * fl, 0.6);
+    B.ngon(x, y, r * 1.6, 6, t * 0.6, COL.gold, 0.55 + 0.3 * fl, 1.8, 0.08, 1, 0);
+  }
 
   switch (e.type) {
     case 'drifter':
@@ -520,6 +534,35 @@ function drawEnemy(g, B, e, t, beat) {
       B.circle(x + Math.cos(rot) * r * 0.75, y + Math.sin(rot) * r * 0.75, r * 0.38, c, a, 2, 0.4);
       for (const s of [-1, 1]) B.circle(x + Math.cos(rot + s * 0.3) * r * 0.95, y + Math.sin(rot + s * 0.3) * r * 0.95, 3.5, COL.red, a, 0, 1, 1, 0);
       if (e.armor < 1) B.ring(x, y, r * 1.45, COL.lime, 0.45 + 0.2 * Math.sin(t * 5), 1.4, 1);
+      break;
+    }
+    case 'chaperone': {                         // a winged lantern
+      const fl = 0.5 + 0.5 * Math.sin(t * 5 + e.seed * 6);
+      B.glow(x, y, r * 3, r * 3, 0, COL.gold, 0.25 + 0.15 * fl);
+      B.ngon(x, y, r * 1.05, 4, Math.PI / 4, c, a, 2.4, 0.3, 1.1);
+      B.circle(x, y, r * 0.42, COL.white, a, 0, 1, 1 + fl, 0);
+      for (const sd of [-1, 1]) B.arc(x + sd * r * 0.9, y - r * 0.2, r * 0.9, sd > 0 ? -0.3 : Math.PI + 0.3, 0.9, 2, c, a * 0.8, 0.8);
+      B.ring(x, y, 380, COL.gold, 0.06 + 0.04 * fl, 1, 0);
+      break;
+    }
+    case 'siren': {                             // a crescent singer with notes rippling out
+      const sing = e.state === 1, fl = 0.5 + 0.5 * Math.sin(t * 9);
+      if (sing) for (let i = 0; i < 3; i++) B.ring(x, y, r * (1.6 + ((t * 1.5 + i / 3) % 1) * 4), COL.rose, 0.45 * (1 - ((t * 1.5 + i / 3) % 1)), 1.6, 0.8);
+      B.crescent(x, y, r * 1.15, rot, sing ? tint(c, COL.white, 0.4 * fl).slice() : c, a, 2.2, 0.3, 1);
+      B.heart(x, y, r * 0.45, Math.PI / 2, COL.hot, a, 0, 1, 1, 0);
+      if (e.state === 2) for (let i = 0; i < 3; i++) B.star(x + Math.cos(t * 4 + i * 2.1) * r * 1.3, y - r * 1.1 + Math.sin(t * 4 + i * 2.1) * 6, 4, 4, t * 3, COL.white, 0.9, 0, 1, 0.6, 0);
+      break;
+    }
+    case 'mourner': {                           // a hooded wisp; a beam when it raises the dead
+      if (e.raise) {
+        const q = clamp(e.raise.t / 0.8, 0, 1);
+        B.line(x, y, e.raise.x, e.raise.y, 1.5 + 3 * q, COL.ghost, 0.4 + 0.5 * q, 0.8);
+        B.ring(e.raise.x, e.raise.y, 30 * (1.4 - q), COL.ghost, 0.5 + 0.5 * q, 2, 1);
+      }
+      B.ngon(x, y + r * 0.15, r * 1.15, 3, -Math.PI / 2, c, a, 2.2, 0.25, 1);
+      B.circle(x, y - r * 0.15, r * 0.5, [0.05, 0.04, 0.1], a, 0, 1, 0, 1);
+      B.circle(x - r * 0.18, y - r * 0.2, 2.5, COL.violet, a, 0, 1, 1.4, 0);
+      B.circle(x + r * 0.18, y - r * 0.2, 2.5, COL.violet, a, 0, 1, 1.4, 0);
       break;
     }
     case 'pod': {
@@ -791,7 +834,7 @@ function drawPointers(g, B, t) {
   let alive = 0;
   for (const e of g.enemies) if (!e.dead && !e.def.untargetable) alive++;
   for (const e of g.enemies) {
-    if (e.dead || e.def.untargetable || e.def.loot || (!e.boss && alive > 6)) continue;
+    if (e.dead || e.def.untargetable || e.def.loot || e.def.pointer || (!e.boss && alive > 6)) continue;
     const dx = e.x - cam.x, dy = e.y - cam.y;
     if (Math.abs(dx) < hx + 30 && Math.abs(dy) < hy + 30) continue;
     const k = Math.min(hx / Math.abs(dx || 1), hy / Math.abs(dy || 1));
@@ -799,11 +842,11 @@ function drawPointers(g, B, t) {
     B.chevron(cam.x + dx * k, cam.y + dy * k, e.boss ? 20 : 12, Math.atan2(dy, dx), col, 0.6 + 0.4 * Math.sin(t * 8), 2, 0.6, 1, 0);
   }
   for (const e of g.enemies) {                 // Love Jars always get a pointer
-    if (e.dead || e.type !== 'jar' || e.spawn > 0) continue;
+    if (e.dead || !(e.type === 'jar' || e.def.pointer) || e.spawn > 0) continue;
     const dx = e.x - cam.x, dy = e.y - cam.y;
     if (Math.abs(dx) < hx + 30 && Math.abs(dy) < hy + 30) continue;
     const s = Math.min(hx / Math.abs(dx || 1), hy / Math.abs(dy || 1));
-    B.chevron(cam.x + dx * s, cam.y + dy * s, 15, Math.atan2(dy, dx), COL.gold, 0.6 + 0.4 * Math.sin(t * 8), 2, 0.8, 1, 0);
+    B.chevron(cam.x + dx * s, cam.y + dy * s, e.type === 'jar' ? 15 : 13, Math.atan2(dy, dx), e.type === 'jar' ? COL.gold : COL.amber, 0.6 + 0.4 * Math.sin(t * 8), 2, 0.8, 1, 0);
   }
   for (const k of g.pickups) {
     if (k.kind !== 'container' || k.dead) continue;

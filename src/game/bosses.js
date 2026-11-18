@@ -535,10 +535,17 @@ function aiShatter(g, e, dt) {
   e.timer -= dt;
   if (e.state === 0) {
     if (e.timer > 0) return;
-    e.atk = (e.atk + 1) % 4;
+    e.atk = (e.atk + 1) % 5;
     if (e.atk === 3) { crystalPrison(g); e.timer = 2; return; }
+    if (e.atk === 4) {                        // Shatter Storm: spinning crystal spokes
+      const a0 = g.rng.angle(), dir = g.rng.sign(), n = e.shards.length ? 4 : 5;
+      for (let i = 0; i < n; i++) g.addLaser({ x: e.x, y: e.y, ang: a0 + (i / n) * TAU, len: 560, w: 22, warn: 1.0, dur: 2.2, owner: e, spin: dir * 0.85 });
+      g.fx.text(e.x, e.y - e.r - 24, 'SHATTER STORM', COL.ice, 13, 0.9);
+      g.audio.play('charge');
+      e.timer = 3.6; return;
+    }
     e.state = e.atk + 1;
-    e.count = e.atk === 0 ? 3 : e.atk === 2 ? 4 : 1;
+    e.count = e.atk === 0 ? 4 : e.atk === 2 ? 5 : 1;
     e.timer = e.atk === 1 ? 0 : 0.2;
   } else if (e.state === 1) {               // splinter fans
     if (e.timer <= 0) {
@@ -565,10 +572,10 @@ function crystalPrison(g) {
   for (let i = 0; i < n; i++) {
     if (i === gap) continue;
     const a = a0 + (i / n) * TAU;
-    g.zones.push({ kind: 'blast', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 88, t: 0, dur: 1.35, tick: 0, crystal: true });
+    g.zones.push({ kind: 'blast', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 88, t: 0, dur: 1.2, tick: 0, crystal: true });
   }
   const ga = a0 + (gap / n) * TAU;
-  g.zones.push({ kind: 'blast', x: cx, y: cy, r: 130, t: 0, dur: 1.35, tick: 0, crystal: true, gapX: cx + Math.cos(ga) * (R + 120), gapY: cy + Math.sin(ga) * (R + 120) });
+  g.zones.push({ kind: 'blast', x: cx, y: cy, r: 130, t: 0, dur: 1.2, tick: 0, crystal: true, gapX: cx + Math.cos(ga) * (R + 120), gapY: cy + Math.sin(ga) * (R + 120) });
   g.fx.text(cx, cy - 60, 'PRISON', COL.ice, 13, 0.9);
   g.audio.play('telegraph');
 }
@@ -593,6 +600,11 @@ function aiShard(g, e, dt) {
   if (e.state === 0) {                      // circle the player
     e.oa = (e.oa ?? g.rng.angle()) + dt * 1.1;
     steer(e, p.x + Math.cos(e.oa) * 280, p.y + Math.sin(e.oa) * 280, 330, 3, dt);
+    e.lanceT = (e.lanceT ?? g.rng.range(0.8, 1.6)) - dt;
+    if (e.lanceT <= 0) {                     // a quick crystal lance at you
+      e.lanceT = g.rng.range(2.6, 3.4);
+      g.addLaser({ x: e.x, y: e.y, ang: toPlayer(g, e), len: 460, w: 16, warn: 0.75, dur: 0.2, owner: e });
+    }
     if (e.timer <= 0) { e.state = 1; e.timer = 0.45; e.da = toPlayer(g, e); g.audio.play('telegraph'); }
   } else if (e.state === 1) {               // wind up
     e.vx = damp(e.vx, 0, 10, dt); e.vy = damp(e.vy, 0, 10, dt);
@@ -623,6 +635,14 @@ function aiWeaver(g, e, dt) {
       g.zones.push({ kind: 'web', x: z.x, y: z.y, r: 120, t: 0, dur: 6, tick: 0, land: 0.05 });
       g.ringBullets(z.x, z.y, 10, 220, g.rng.angle());
       e.pz = null;
+      if (e.chain > 0) {                      // enraged: leap again straight away
+        e.chain--;
+        const tx = clamp(p.x + p.vx * 0.45, -ARENA.hw + 80, ARENA.hw - 80), ty = clamp(p.y + p.vy * 0.45, -ARENA.hh + 80, ARENA.hh - 80);
+        e.pz = { kind: 'blast', x: tx, y: ty, r: 150, t: 0, dur: 0.85, tick: 0 };
+        e.px = e.x; e.py = e.y;
+        g.zones.push(e.pz);
+        g.audio.play('telegraph');
+      }
     }
   }
   else if (d > 520) steer(e, p.x, p.y, 150, 2, dt);
@@ -660,7 +680,7 @@ function aiWeaver(g, e, dt) {
     g.audio.play('telegraph');
   }
   updateThreads(g, e);
-  e.armor = e.anchors.length >= 4 ? 0.7 : 1;          // the web shields its maker
+  e.armor = e.anchors.length >= 4 ? 0.5 : 1;          // the web shields its maker
 
   e.timer -= dt;
   if (e.timer <= 0 && !e.pz) {
@@ -669,6 +689,7 @@ function aiWeaver(g, e, dt) {
       const tx = clamp(p.x + p.vx * 0.45, -ARENA.hw + 80, ARENA.hw - 80), ty = clamp(p.y + p.vy * 0.45, -ARENA.hh + 80, ARENA.hh - 80);
       e.pz = { kind: 'blast', x: tx, y: ty, r: 150, t: 0, dur: 1.05, tick: 0 };
       e.px = e.x; e.py = e.y;
+      e.chain = rage ? 2 : 0;
       g.zones.push(e.pz);
       g.audio.play('telegraph');
       e.timer = rage ? 1.6 : 2.1;
@@ -736,6 +757,7 @@ function aiSac(g, e, dt) {
   e.rot += dt * (1 + 4 * Math.max(0, 1 - e.hatch / 5));
   if (e.hatch <= 0) {
     for (let i = 0; i < 5; i++) spawnEnemy(g, 'mote', e.x + g.rng.range(-20, 20), e.y + g.rng.range(-20, 20), { spawn: 0.15 });
+    g.zones.push({ kind: 'web', x: e.x, y: e.y, r: 130, t: 0, dur: 6, tick: 0, land: 0.05 });
     g.fx.burst(e.x, e.y, COL.lime, 20, 300, 0.5, 4);
     g.audio.play('enemyBurst');
     g.killEnemy(e, true);
@@ -744,7 +766,7 @@ function aiSac(g, e, dt) {
 
 function aiAnchor(g, e, dt) {
   const p = g.player, d = Math.hypot(p.x - e.x, p.y - e.y);
-  if (d > 240) steer(e, p.x, p.y, 32, 1.5, dt); else { e.vx = damp(e.vx, 0, 3, dt); e.vy = damp(e.vy, 0, 3, dt); }
+  if (d > 200) steer(e, p.x, p.y, 58, 1.5, dt);      // the cage tightens else { e.vx = damp(e.vx, 0, 3, dt); e.vy = damp(e.vy, 0, 3, dt); }
   e.rot += dt * 2;
 }
 
@@ -1037,13 +1059,13 @@ Object.assign(DEFS, {
   },
 
   shatter: {
-    ...bossBase, name: 'SHATTERHEART', hp: 3500, speed: 120, r: 64, xp: 130, col: 'ice', score: 4000, ai: aiShatter,
+    ...bossBase, name: 'SHATTERHEART', hp: 3900, speed: 120, r: 64, xp: 130, col: 'ice', score: 4000, ai: aiShatter,
     init(g, e) { e.shards = []; e.broken = 0; e.atk = -1; e.timer = 2; e.armor = 1; },
     onDeath(g, e) { for (const s of e.shards) if (!s.dead) g.killEnemy(s, true); },
   },
   shard: { hp: 100, speed: 330, r: 22, xp: 6, threat: 0, col: 'ice', ai: aiShard, noCharm: true, noElite: true, heavy: true, noSep: true, score: 300 },
   weaver: {
-    ...bossBase, name: 'THE WEAVER', hp: 12000, speed: 150, r: 56, xp: 100, col: 'lime', score: 4000, ai: aiWeaver,
+    ...bossBase, name: 'THE WEAVER', hp: 16500, speed: 150, r: 56, xp: 100, col: 'lime', score: 4000, ai: aiWeaver,
     init(g, e) { e.anchors = []; e.anchorT = 1.2; e.weave = 0; e.reweaveT = 0; e.armor = 1; e.threads = new Map(); e.atk = -1; e.timer = 2.5; },
     onDeath(g, e) {
       for (const a of e.anchors) if (!a.dead) g.killEnemy(a, true);

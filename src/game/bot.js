@@ -54,6 +54,9 @@ export function botInput(g) {
       if (d < z.r + 40) { fx += (dx / d) * 1.5; fy += (dy / d) * 1.5; }
     }
   }
+  for (const e of g.enemies) {                  // a singing Siren: dash to break the pull
+    if (e.type === 'siren' && e.state === 1 && !e.dead && (e.x - p.x) ** 2 + (e.y - p.y) ** 2 < 800 * 800) danger++;
+  }
   for (const l of g.lasers) {
     const ex = l.x + Math.cos(l.ang) * l.len, ey = l.y + Math.sin(l.ang) * l.len;
     const dx = ex - l.x, dy = ey - l.y, l2 = dx * dx + dy * dy || 1;
