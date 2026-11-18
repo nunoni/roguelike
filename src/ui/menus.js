@@ -3,6 +3,7 @@
 import { SKILLS, FUSIONS, SKILL_BY_ID, usedSkills, describeChoice } from '../game/upgrades.js';
 import { icon } from './icons.js';
 import { buildTiles } from './hud.js';
+import { SECTOR_BY_ID } from '../config.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['title', 'levelup', 'pause', 'over', 'how', 'codex', 'settings'];
@@ -118,7 +119,8 @@ export class Menus {
     const t = $('over-title');
     t.textContent = won ? 'THE VOID IS SILENT' : 'HEARTBROKEN';
     t.classList.toggle('win', won);
-    $('over-sub').textContent = won ? 'You outshone the Eclipse' : `Fell in sector ${g.sectorIndex + 1}, wave ${g.wave}`;
+    const route = g.route.slice(0, g.sectorIndex + 1).map((id) => SECTOR_BY_ID[id].name.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase())).join(' → ');
+    $('over-sub').textContent = (won ? 'You outshone the Eclipse' : `Fell in ${g.sector.name.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase())}, wave ${g.wave}`) + ` · ${route}`;
     const time = `${Math.floor(g.time / 60)}:${String(Math.floor(g.time) % 60).padStart(2, '0')}`;
     const cell = (v, label, isNew) => `<div class="stat${isNew ? ' new' : ''}"><b>${v}</b><span>${label}${isNew ? ' · best' : ''}</span></div>`;
     $('over-stats').innerHTML =

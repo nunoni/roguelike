@@ -1,7 +1,7 @@
 // One run of the game. Owns all simulation state; knows nothing about WebGL or
 // the DOM. Visuals and sound go through the injected ctx ({ fx, audio, ui }).
 
-import { ARENA, COL, PLAYER, FINAL_WAVE, WAVES_PER_SECTOR, SECTORS, BPM, xpForLevel } from '../config.js';
+import { ARENA, COL, PLAYER, FINAL_WAVE, WAVES_PER_SECTOR, SECTOR_BY_ID, ROUTE_TIERS, BPM, xpForLevel } from '../config.js';
 import { Rng } from '../core/rng.js';
 import { Grid } from '../core/spatial.js';
 import { clamp, compact, damp, segDist2, TAU } from '../core/math.js';
@@ -13,6 +13,7 @@ import { updateProjectiles, spawnProj, chainFrom } from './weapons.js';
 import { updateSpells } from './spells.js';
 import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
 import { Waves } from './waves.js';
+import { updateHazards, clearHazards } from './hazards.js';
 
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
@@ -86,11 +87,59 @@ export class Game {
 
     this.waves = new Waves(this);
     this.bossPlan = rollBossPlan(this.rng);   // which boss guards each sector this run
+    this.route = [ROUTE_TIERS[0][0]];         // sector ids, one per tier, picked at the warp gates
+    this.gates = null;                        // [{ x, y, r, id, t }] while a route choice is open
+    this.hz = {};                             // stage hazard state, reset every wave
   }
 
   get wave() { return this.waves.n; }
-  get sector() { return SECTORS[Math.floor((Math.max(1, this.waves.n) - 1) / WAVES_PER_SECTOR) % SECTORS.length]; }
   get sectorIndex() { return Math.floor((Math.max(1, this.waves.n) - 1) / WAVES_PER_SECTOR); }
+  get sector() { return SECTOR_BY_ID[this.sectorId(this.sectorIndex)]; }
+  /** The sector id for a tier index; endless loops through the tiers again. */
+  sectorId(i) {
+    return this.route[i] || this.route[this.route.length - 1];
+  }
+
+  /** Open the warp gates for the next tier, or pick it outright if there is only one option. */
+  openGates() {
+    if (this.route.length > this.sectorIndex + 1) return;     // already decided (dev ?route=)
+    const tier = ROUTE_TIERS[(this.route.length) % ROUTE_TIERS.length];
+    if (tier.length === 1) { this.route.push(tier[0]); return; }
+    const p = this.player, opts = [...tier];
+    if (this.rng.chance(0.5)) opts.reverse();
+    this.gates = opts.map((id, i) => {
+      const side = i ? 1 : -1;
+      return { id, x: clamp(p.x + side * 430, -ARENA.hw + 200, ARENA.hw - 200), y: clamp(p.y - 40, -ARENA.hh + 220, ARENA.hh - 220), r: 95, t: 0 };
+    });
+    // keep both gates apart even when clamped against a wall
+    if (Math.abs(this.gates[0].x - this.gates[1].x) < 500) {
+      const mid = clamp((this.gates[0].x + this.gates[1].x) / 2, -ARENA.hw + 460, ARENA.hw - 460);
+      this.gates[0].x = mid - 430; this.gates[1].x = mid + 430;
+    }
+    this.ui.banner('CHOOSE YOUR ROUTE', 'Fly into a warp gate', 'sector');
+    this.audio.play('fusion');
+  }
+
+  updateGates(dt) {
+    const p = this.player;
+    for (const gt of this.gates) {
+      gt.t += dt;
+      if (p.dead || gt.t < 0.8) continue;
+      if (Math.hypot(p.x - gt.x, p.y - gt.y) < gt.r + p.r) {
+        this.route.push(gt.id);
+        for (const o of this.gates) {
+          this.fx.shock(o.x, o.y, 1, 600, 0.6);
+          this.fx.burst(o.x, o.y, SECTOR_BY_ID[o.id].c3, 40, 600, 0.8, 6, 1);
+        }
+        this.fx.white(0.35); this.fx.shake(10);
+        this.audio.play('bomb');
+        this.gates = null;
+        this.waves.timer = Math.min(this.waves.timer, 1.5);
+        p.invuln = Math.max(p.invuln, 1);
+        return;
+      }
+    }
+  }
 
   // ------------------------------------------------------------------ frame
   update(realDt, input) {
@@ -119,6 +168,8 @@ export class Game {
     this.updateLasers(dt);
     this.updatePickups(dt);
     this.updateBombRing(dt);
+    updateHazards(this, dt);
+    if (this.gates) this.updateGates(dt);
 
     for (let i = this.delayed.length - 1; i >= 0; i--) {
       const d = this.delayed[i];
@@ -452,6 +503,8 @@ export class Game {
 
   addLaser(o) {
     const l = { x: o.x, y: o.y, ang: o.ang, len: o.len || 1500, w: o.w || 22, warn: o.warn ?? 1, dur: o.dur ?? 0.3, t: 0, owner: o.owner || null, spin: o.spin || 0, perm: !!o.perm, dead: false, hitT: 0 };
+    if (o.hurts) { l.hurts = o.hurts; l.hit = new Set(); l.col = o.col; }     // hazards: also strikes enemies
+    if (o.kind) l.kind = o.kind;
     this.lasers.push(l);
     return l;
   }
@@ -495,6 +548,17 @@ export class Game {
         const x2 = l.x + Math.cos(l.ang) * l.len, y2 = l.y + Math.sin(l.ang) * l.len;
         const rr = l.w * 0.5 + p.r * 0.6;
         if (segDist2(p.x, p.y, l.x, l.y, x2, y2) < rr * rr) this.hurtPlayer(1, p.x, p.y);
+        if (l.hurts) {
+          for (const e of this.enemies) {
+            if (!this.hittable(e) || l.hit.has(e.id)) continue;
+            const er = l.w * 0.5 + e.r;
+            if (segDist2(e.x, e.y, l.x, l.y, x2, y2) < er * er) {
+              l.hit.add(e.id);
+              this.damageEnemy(e, this.stats.damage * l.hurts, null);
+              if (l.kind === 'arc') this.fx.lightning(e.x, e.y, e.x + this.rng.range(-40, 40), e.y + this.rng.range(-40, 40), l.col || COL.cyan);
+            }
+          }
+        }
       }
     }
   }
@@ -510,14 +574,19 @@ export class Game {
           if (z.src && z.src.dead && !z.armed) { z.dead = true; break; }
           if (z.t >= z.dur) {
             z.dead = true;
-            this.fx.ring(z.x, z.y, COL.red, z.r * 0.3, z.r, 0.35, 5);
-            this.fx.burst(z.x, z.y, COL.orange, 30, z.r * 4.5, 0.5, 5);
+            const zc = z.crystal ? COL.ice : z.fall ? COL.violet : COL.red;
+            this.fx.ring(z.x, z.y, zc, z.r * 0.3, z.r, 0.35, 5);
+            this.fx.burst(z.x, z.y, z.crystal ? COL.white : COL.orange, 30, z.r * 4.5, 0.5, 5);
             this.fx.shock(z.x, z.y, 0.8, z.r * 2.6, 0.5);
             this.fx.shake(8);
             this.audio.play('explode');
             const dx = p.x - z.x, dy = p.y - z.y;
             if (dx * dx + dy * dy < (z.r + p.r * 0.5) ** 2) this.hurtPlayer(z.dmg || 1, z.x, z.y);
             if (z.src && !z.src.dead) this.killEnemy(z.src, true);
+            if (z.harm) {                  // hazard blasts (solar flares) hit enemies too
+              this.explode(z.x, z.y, z.r, st.damage * z.harm, { col: COL.orange });
+              if (z.burn) this.zones.push({ kind: 'fire', x: z.x, y: z.y, r: z.r * 0.85, t: 0, dur: z.burn, tick: 0 });
+            }
           }
           break;
         case 'meteor':
@@ -705,6 +774,7 @@ export class Game {
     for (const b of this.bullets) { b.dead = true; fx.mote(b.x, b.y, COL.bullet, 0.6, 5, 0.5, 200); }
     for (const l of this.lasers) l.dead = true;
     for (const z of this.zones) if (z.kind === 'blast' || z.kind === 'tile' || z.kind === 'web') z.dead = true;
+    clearHazards(this);
     for (const o of this.enemies) if (!o.dead && !o.boss) { if (o.xp > 0) this.dropXp(o.x, o.y, o.xp); this.killEnemy(o, true); }
     fx.shock(e.x, e.y, 2.6, 1600, 1.3);
     fx.burst(e.x, e.y, COL.white, 120, 1200, 1.4, 8);
@@ -726,5 +796,6 @@ export class Game {
   continueEndless() {
     this.endless = true;
     this.state = 'playing';
+    if (this.route.length <= this.sectorIndex + 1) this.openGates();
   }
 }

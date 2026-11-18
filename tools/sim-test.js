@@ -7,7 +7,7 @@ import { SKILLS, FUSIONS, rollChoices, describeChoice, computeStats, readyFusion
 import { DEFS } from '../src/game/enemies.js';
 import { UNLOCK } from '../src/game/waves.js';
 import { BOSS_ORDER, BOSS_POOLS } from '../src/game/bosses.js';
-import { FINAL_WAVE, WAVES_PER_SECTOR } from '../src/config.js';
+import { FINAL_WAVE, WAVES_PER_SECTOR, ROUTE_TIERS, SECTORS } from '../src/config.js';
 
 const noop = () => {};
 const stub = () => new Proxy({}, { get: () => noop });
@@ -122,7 +122,11 @@ console.log('full run (god mode, bot-chosen build)');
   const g = newGame({ seed: 7, god: true });
   const t0 = Date.now();
   const plan = [...g.bossPlan];
-  const r = run(g, { until: (g) => g.wave >= FINAL_WAVE + 2, maxSeconds: 4200 });
+  let gates = 0, routeAt21 = null;
+  const r = run(g, {
+    until: (g) => g.wave >= FINAL_WAVE + 2, maxSeconds: 4200,
+    onFrame: (g) => { if (g.gates && g.gates[0].t === 0) gates++; if (g.wave === 21 && !routeAt21) routeAt21 = [...g.route]; },
+  });
   const ms = Date.now() - t0;
   check(!r.err, 'no NaN / infinite values' + (r.err ? ': ' + r.err : ''));
   check(r.victory, `reached victory after wave ${FINAL_WAVE}`);
@@ -130,6 +134,9 @@ console.log('full run (god mode, bot-chosen build)');
   for (const [t] of UNLOCK) check(g.stat.seen[t] > 0, `spawned ${t}`);
   for (const b of plan) check(g.stat.seen[b] > 0, `spawned planned boss ${b}`);
   check(plan.every((b, i) => BOSS_POOLS[i].includes(b)), `boss plan drawn from the pools (${plan})`);
+  check(gates >= 3, `warp gates opened after the branching bosses (${gates})`);
+  check(routeAt21 && routeAt21.length === 5 && routeAt21.every((id, i) => ROUTE_TIERS[i].includes(id)), `route follows the tiers (${routeAt21})`);
+  check(g.route.length >= 6, `endless keeps extending the route (${g.route.join(',')})`);
   check(r.peak.enemies <= 420, `enemy count bounded (peak ${r.peak.enemies})`);
   check(r.peak.projs <= 1400, `projectile count bounded (peak ${r.peak.projs})`);
   check(r.peak.bullets <= 900, `bullet count bounded (peak ${r.peak.bullets})`);
@@ -173,6 +180,38 @@ for (const f of FUSIONS) {
   check(!r.err, `${f.id}: no NaN` + (r.err ? ': ' + r.err : ''));
   check(g.stat.dmg > dmg0 && g.kills > 0, `${f.id}: deals damage (${g.kills} kills)`);
   check(r.peak.projs <= 1400 && r.peak.zones <= 400, `${f.id}: counts bounded`);
+}
+
+// ---------------------------------------------------------------- 3c. every sector's hazard
+console.log('sector hazards');
+for (const sec of SECTORS) {
+  const ti = ROUTE_TIERS.findIndex((t) => t.includes(sec.id));
+  const g = newGame({ seed: 40 + ti, god: true });
+  for (const sk of SKILLS) g.levels[sk.id] = Math.ceil(sk.max / 2);
+  g.setStats();
+  g.route = [...ROUTE_TIERS.slice(0, ti).map((t) => t[0]), sec.id];
+  const n0 = ti * WAVES_PER_SECTOR + 2;
+  g.waves.n = n0 - 1; g.waves.timer = 0.1;
+  const seen = { comet: 0, pod: 0, refr: 0, flare: 0, arc: 0, rift: 0, flow: 0, dark: 0 };
+  const r = run(g, {
+    until: (g) => g.wave > n0 + 1, maxSeconds: 400,
+    onFrame: (g) => {
+      for (const l of g.lasers) { if (l.kind === 'comet') seen.comet++; if (l.kind === 'arc') seen.arc++; }
+      for (const e of g.enemies) if (e.type === 'pod') seen.pod++;
+      for (const b of g.bullets) if (b.refr) seen.refr++;
+      for (const q of g.projs) if (q.refr) seen.refr++;
+      for (const z of g.zones) if (z.flare) seen.flare++;
+      if (g.hz.rifts) seen.rift++;
+      if (g.hz.fx) seen.flow++;
+      if (g.dark && g.dark.hz && g.dark.k > 0.5) seen.dark++;
+    },
+  });
+  const key = { azure: 'comet', verdant: 'pod', crystal: 'refr', ember: 'flare', storm: 'arc', hollow: 'rift', tidal: 'flow', corona: 'dark' }[sec.id];
+  check(g.sector.id === sec.id || g.wave > n0, `${sec.id}: plays in its sector`);
+  check(!r.err, `${sec.id}: no NaN` + (r.err ? ': ' + r.err : ''));
+  check(seen[key] > 0, `${sec.id}: ${sec.hazard.toLowerCase()} happen (${key} ${seen[key]})`);
+  check(g.wave > n0 + 1, `${sec.id}: waves still clear (${Math.round(r.seconds)}s)`);
+  check(r.peak.bullets <= 900 && r.peak.zones <= 400 && r.peak.projs <= 1400, `${sec.id}: counts bounded (${JSON.stringify(r.peak)})`);
 }
 
 // ---------------------------------------------------------------- 4. each boss in isolation

@@ -77,6 +77,22 @@ export function botInput(g) {
   }
   // gentle circling so the bot never stands still
   fx += Math.cos(g.time * 0.7) * 0.25; fy += Math.sin(g.time * 0.9) * 0.25;
+  if (g.gates && g.gates[0].t > 2) {          // route choice: fly into the nearer warp gate
+    let gt = g.gates[0];
+    for (const o of g.gates) if (Math.hypot(o.x - p.x, o.y - p.y) < Math.hypot(gt.x - p.x, gt.y - p.y)) gt = o;
+    const dx = gt.x - p.x, dy = gt.y - p.y, d = Math.hypot(dx, dy) || 1;
+    fx += (dx / d) * 8; fy += (dy / d) * 8;
+  }
+  const hz = g.hz;
+  if (hz && hz.prisms) for (const pr of hz.prisms) {
+    const dx = p.x - pr.x, dy = p.y - pr.y, d = Math.hypot(dx, dy) || 1;
+    if (d < 110) { fx += (dx / d) * 1.5; fy += (dy / d) * 1.5; }
+  }
+  if (hz && hz.rifts) for (const rf of hz.rifts) {
+    const dx = p.x - rf.x, dy = p.y - rf.y, d = Math.hypot(dx, dy) || 1;
+    if (d < rf.R) { fx += (dx / d) * 3 * (1 - d / rf.R) + (dx / d) * (d < 140 ? 3 : 0); fy += (dy / d) * 3 * (1 - d / rf.R) + (dy / d) * (d < 140 ? 3 : 0); }
+  }
+  if (hz && hz.fx) { fx -= hz.fx / 160; fy -= hz.fy / 160; }   // lean into the current
 
   const l = Math.hypot(fx, fy);
   const mx = l > 0.05 ? fx / l : 0, my = l > 0.05 ? fy / l : 0;

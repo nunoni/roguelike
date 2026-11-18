@@ -44,15 +44,55 @@ function aiMonolith(g, e, dt) {
   }
   const spin = e.t * 0.9;
   e.plates.forEach((s, i) => {
+    if (s.launch) { flyPlate(g, s, dt); return; }
     const a = spin + (i / 4) * TAU;
     s.x = e.x + Math.cos(a) * 150; s.y = e.y + Math.sin(a) * 150;
     s.rot = a;
+    s.faded = e.faded;
   });
 
   e.timer -= dt;
+  if (e.state === 3) {             // plate barrage: launch the shields one by one
+    if (e.timer <= 0) {
+      const s = e.plates.find((o) => !o.launch && o.spawn <= 0);
+      if (!s || e.count <= 0) { e.state = 0; e.timer = 1.4; e.plateT = 1.5; return; }
+      const a = Math.atan2(p.y + p.vy * 0.3 - s.y, p.x + p.vx * 0.3 - s.x);
+      s.launch = { ang: a, t: 0 };
+      g.addLaser({ x: s.x, y: s.y, ang: a, len: 1700, w: 40, warn: 0.6, dur: 0.3 });
+      g.audio.play('charge');
+      e.count--; e.timer = rage ? 0.32 : 0.42;
+    }
+    return;
+  }
+  if (e.state === 4) {             // Monolith Fall: rise out of reach, then crash down on you
+    const z = e.fallZ;
+    e.vx = e.vy = 0;
+    if (z.t < z.dur - 0.45) {
+      z.x = damp(z.x, clamp(p.x + p.vx * 0.25, -ARENA.hw + 80, ARENA.hw - 80), 5, dt);
+      z.y = damp(z.y, clamp(p.y + p.vy * 0.25, -ARENA.hh + 80, ARENA.hh - 80), 5, dt);
+    }
+    if (z.t > 0.35) { e.x = z.x; e.y = z.y; }
+    if (z.dead || z.t >= z.dur) {
+      e.faded = false;
+      g.ringBullets(e.x, e.y, 20, 250, g.rng.angle());
+      g.fx.shake(18);
+      e.state = 0; e.timer = 1.6;
+    }
+    return;
+  }
   if (e.state === 0) {
     if (e.timer <= 0) {
-      e.atk = (e.atk + 1) % 4;
+      e.atk = (e.atk + 1) % (rage ? 6 : 5);
+      if (e.atk === 4 && e.plates.filter((o) => !o.launch).length < 2) e.atk = rage ? 5 : 0;
+      if (e.atk === 4) { e.state = 3; e.count = 4; e.timer = 0.2; g.fx.text(e.x, e.y - e.r - 24, 'BARRAGE', COL.violet, 13, 0.9); return; }
+      if (e.atk === 5) {
+        e.state = 4; e.faded = true;
+        e.fallZ = { kind: 'blast', x: p.x, y: p.y, r: 210, t: 0, dur: 1.75, tick: 0, fall: true };
+        g.zones.push(e.fallZ);
+        g.fx.burst(e.x, e.y, COL.violet, 40, 500, 0.6, 6);
+        g.audio.play('bossRoar');
+        return;
+      }
       if (e.atk === 3) { e.state = 2; e.count = rage ? 5 : 4; e.timer = 0.1; }
       else if (e.atk === 0) { e.state = 1; e.count = rage ? 6 : 4; e.timer = 0.3; }
       else if (e.atk === 1) {
@@ -84,6 +124,16 @@ function aiMonolith(g, e, dt) {
   }
 }
 
+function flyPlate(g, s, dt) {
+  const L = s.launch;
+  L.t += dt;
+  s.faded = false;
+  if (L.t < 0.6) { s.x += g.rng.range(-2, 2); s.y += g.rng.range(-2, 2); return; }   // rattle, then fly
+  s.x += Math.cos(L.ang) * 2600 * dt; s.y += Math.sin(L.ang) * 2600 * dt;
+  s.rot += dt * 12;
+  if (Math.abs(s.x) > ARENA.hw + 60 || Math.abs(s.y) > ARENA.hh + 60) g.killEnemy(s, true);
+}
+
 // ------------------------------------------------------------------ Binary
 function aiBinary(g, e, dt) {
   const p = g.player, c = e.ctl;
@@ -92,8 +142,32 @@ function aiBinary(g, e, dt) {
     if (c.frame !== g.frame) {           // shared orbit, advanced once per frame
       c.frame = g.frame;
       c.t += dt;
-      c.ang += dt * 0.85;
-      c.rad = 260 + Math.sin(c.t * 0.75) * 160;
+      const base = 260 + Math.sin(c.t * 0.75) * 160;
+      // Scissor: the pair snaps together, then flings wide with the tether sweeping fast
+      c.scT = (c.scT ?? 8) - dt;
+      if (c.scT <= 0 && c.sc === undefined) { c.sc = 0; g.audio.play('charge'); g.fx.ring(c.x, c.y, COL.amber, 40, 500, 0.6, 3); }
+      if (c.sc !== undefined) {
+        c.sc += dt;
+        const q = c.sc;
+        c.rad = q < 0.9 ? base + (70 - base) * (q / 0.9) : q < 1.8 ? 70 + 400 * ((q - 0.9) / 0.9) : 470 + (base - 470) * Math.min(1, (q - 1.8) / 0.8);
+        c.ang += dt * (q > 0.9 && q < 2.2 ? 2.4 : 0.85);
+        if (q >= 2.6) { c.sc = undefined; c.scT = 8.5; }
+      } else {
+        c.rad = base;
+        c.ang += dt * 0.85;
+      }
+      // Tether Wall: bullets peel off both sides of the beam
+      c.wallT = (c.wallT ?? 4) - dt;
+      if (c.wallT <= 0 && c.sc === undefined && c.beam && c.beam.t > c.beam.warn) {
+        c.wallT = 4.6;
+        const b = c.beam, nx = -Math.sin(b.ang), ny = Math.cos(b.ang);
+        for (let i = 1; i <= 7; i++) {
+          const f = i / 8, x = b.x + Math.cos(b.ang) * b.len * f, y = b.y + Math.sin(b.ang) * b.len * f;
+          g.fireBullet(x, y, Math.atan2(ny, nx), 200);
+          g.fireBullet(x, y, Math.atan2(-ny, -nx), 200);
+        }
+        g.audio.play('enemyBurst');
+      }
       const dx = p.x - c.x, dy = p.y - c.y, d = Math.hypot(dx, dy) || 1;
       if (d > 260) { c.x += (dx / d) * 70 * dt; c.y += (dy / d) * 70 * dt; }
       if (!c.beam || c.beam.dead) c.beam = g.addLaser({ x: 0, y: 0, ang: 0, len: 10, w: 18, warn: 2.2, dur: 1, perm: true, owner: e });
@@ -145,10 +219,26 @@ function aiBinary(g, e, dt) {
       e.vx = damp(e.vx, 0, 8, dt); e.vy = damp(e.vy, 0, 8, dt);
       if (e.timer > 0.25) e.da = toPlayer(g, e);
       if (e.timer <= 0) { e.state = 2; e.timer = 0.5; g.audio.play('lunge'); }
-    } else {                             // dash
+    } else if (e.state === 2) {          // dash
       e.vx = Math.cos(e.da) * 1150; e.vy = Math.sin(e.da) * 1150;
       g.fx.mote(e.x, e.y, COL.amber, 1, 8, 0.4, 80);
-      if (e.timer <= 0) { e.state = 0; e.timer = 1.9; g.ringBullets(e.x, e.y, 14, 220, 0); slam(g, 120, 0.3, 0.8); }
+      if (e.timer <= 0) {
+        g.ringBullets(e.x, e.y, 14, 220, 0); slam(g, 120, 0.3, 0.8);
+        e.dashes = (e.dashes || 0) + 1;
+        if (e.dashes % 2 === 0) { e.state = 3; e.timer = 1.6; e.shotT = 0; }   // collapse: pull you in and spiral
+        else { e.state = 0; e.timer = 1.9; }
+      }
+    } else {
+      e.vx = damp(e.vx, 0, 6, dt); e.vy = damp(e.vy, 0, 6, dt);
+      const dx = e.x - p.x, dy = e.y - p.y, dd = Math.hypot(dx, dy) || 1;
+      p.pullX += (dx / dd) * 170; p.pullY += (dy / dd) * 170;
+      e.shotT -= dt;
+      if (e.shotT <= 0) {
+        e.shotT = 0.12;
+        e.spiral = (e.spiral || 0) + 0.27;
+        for (let i = 0; i < 3; i++) g.fireBullet(e.x, e.y, e.spiral + (i / 3) * TAU, 230);
+      }
+      if (e.timer <= 0) { e.state = 0; e.timer = 1.6; }
     }
     e.x += e.vx * dt; e.y += e.vy * dt;
   }
@@ -186,7 +276,41 @@ function aiOuroboros(g, e, dt) {
       e.shotT -= dt;
       if (e.shotT <= 0) { e.shotT = 1.3; for (let i = -1; i <= 1; i++) g.fireBullet(e.x, e.y, toPlayer(g, e) + i * 0.22, 340); g.audio.play('enemyShot'); }
     }
-    if (e.timer <= 0) { e.state = 1; e.timer = 0.85; g.audio.play('charge'); }
+  }
+  if (rage && e.state !== 2) {           // venom: the body spits too
+    e.venomT = (e.venomT ?? 1.4) - dt;
+    if (e.venomT <= 0 && alive.length) {
+      e.venomT = 1.4;
+      for (let k = 0; k < 3; k++) {
+        const sg = alive[Math.floor(g.rng.next() * alive.length)];
+        g.fireBullet(sg.x, sg.y, Math.atan2(p.y - sg.y, p.x - sg.x), 250, { r: 8 });
+      }
+    }
+  }
+  if (e.state === 0) {
+    if (e.timer <= 0) {
+      e.cycles = (e.cycles || 0) + 1;
+      if (e.cycles % 2 === 0) {            // Coil: wrap around you and squeeze
+        e.state = 3; e.timer = 3.6; e.shotT = 0.6;
+        e.cx = p.x; e.cy = p.y; e.ca = Math.atan2(e.y - p.y, e.x - p.x);
+        g.ui.banner('COIL', '', 'warn');
+        g.audio.play('bossRoar');
+      } else { e.state = 1; e.timer = 0.85; g.audio.play('charge'); }
+    }
+  } else if (e.state === 3) {            // circle tight around where you stand, then tighten
+    e.cx = damp(e.cx, p.x, 0.9, dt); e.cy = damp(e.cy, p.y, 0.9, dt);
+    const R = e.timer > 1.1 ? 330 : 200 + 130 * (e.timer / 1.1);
+    e.ca += dt * 2.5 * e.cdir;
+    const tx = e.cx + Math.cos(e.ca) * R, ty = e.cy + Math.sin(e.ca) * R;
+    e.rot = turnToward(e.rot, Math.atan2(ty - e.y, tx - e.x), 7 * dt);
+    speed = Math.min(1100, 2.5 * R + Math.hypot(tx - e.x, ty - e.y) * 2);
+    e.shotT -= dt;
+    if (e.shotT <= 0) {                  // fangs: fans aimed inward
+      e.shotT = rage ? 0.45 : 0.6;
+      for (let i = -1; i <= 1; i++) g.fireBullet(e.x, e.y, toPlayer(g, e) + i * 0.2, 300);
+      g.audio.play('enemyShot');
+    }
+    if (e.timer <= 0) { e.state = 1; e.timer = 0.7; g.audio.play('charge'); }
   } else if (e.state === 1) {            // line up a charge
     speed = 130;
     e.rot = turnToward(e.rot, toPlayer(g, e), 4.5 * dt);
@@ -214,6 +338,7 @@ function aiHollow(g, e, dt) {
     g.fx.shake(14);
     g.audio.play('bossRoar');
     for (const b of g.bullets) b.dead = true;
+    if (e.fl) { e.fl.a.dead = e.fl.b.dead = true; e.fl = null; }
     if (phase === 3) {
       g.ringArena = { x: clamp(e.x, -700, 700), y: clamp(e.y, -350, 350), r: 1150 };
       g.ui.banner('THE VOID CLOSES IN', '', 'warn');
@@ -239,7 +364,7 @@ function aiHollow(g, e, dt) {
   switch (e.state) {
     case 0:                              // pick the next attack
       if (e.timer <= 0) {
-        const opts = phase === 1 ? [1, 2, 4] : phase === 2 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 3, 5];
+        const opts = phase === 1 ? [1, 2, 4] : phase === 2 ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 3, 5, 6];
         let pick = g.rng.pick(opts);
         if (pick === e.last) pick = g.rng.pick(opts);
         e.last = pick;
@@ -248,6 +373,12 @@ function aiHollow(g, e, dt) {
         e.timer = pick === 3 ? 4.2 : 0.4;
         e.shotT = 0;
         if (pick === 4) { e.sub = 0; e.timer = 0.7; g.audio.play('telegraph'); }
+        if (pick === 6) startFlatline(g, e);
+        if (pick === 3 && phase === 3) {          // arteries: slow spokes while it pulls
+          const a0 = g.rng.angle(), dir = g.rng.sign();
+          for (let i = 0; i < 3; i++) g.addLaser({ x: e.x, y: e.y, ang: a0 + (i / 3) * TAU, len: 720, w: 22, warn: 1.1, dur: 3.1, owner: e, spin: dir * 0.5 });
+          g.audio.play('charge');
+        }
         if (phase >= 2 && g.rng.chance(phase === 3 ? 0.4 : 0.2)) summon(g, e, ['phantom', 'drifter'], 2, 260);
       }
       break;
@@ -295,6 +426,9 @@ function aiHollow(g, e, dt) {
       if (e.timer <= 0) { e.state = 0; e.timer = 1.5 * fast; }
       break;
     }
+    case 6:                              // Flatline: a heartbeat wall sweeps the arena
+      if (updateFlatline(g, e, dt, phase)) { e.state = 0; e.timer = 1.2 * fast; }
+      break;
     case 5:                              // heartquake: slams that chase you
       if (e.timer <= 0) {
         slam(g, 115, 0.45, 0.8, 70);
@@ -325,6 +459,46 @@ function aiHollow(g, e, dt) {
   e.y = clamp(e.y + e.vy * dt, -ARENA.hh + e.r, ARENA.hh - e.r);
 }
 
+
+/** An EKG line: a vertical laser wall with a gap that jumps with the heartbeat. */
+function startFlatline(g, e) {
+  const p = g.player, dir = p.x > e.x ? 1 : -1;
+  const ra = g.ringArena;
+  const left = ra ? ra.x - ra.r : -ARENA.hw, right = ra ? ra.x + ra.r : ARENA.hw;
+  const x0 = dir > 0 ? Math.max(left, p.x - 1000) : Math.min(right, p.x + 1000);
+  const top = -ARENA.hh - 40, bot = ARENA.hh + 40;
+  e.fl = {
+    x: x0, dir, end: dir > 0 ? Math.min(right, p.x + 900) : Math.max(left, p.x - 900),
+    gy: clamp(p.y, -ARENA.hh + 200, ARENA.hh - 200), gto: p.y, half: 150, beats: 0,
+    a: g.addLaser({ x: x0, y: top, ang: Math.PI / 2, len: 10, w: 24, warn: 1.0, dur: 1, perm: true, owner: e }),
+    b: g.addLaser({ x: x0, y: bot, ang: -Math.PI / 2, len: 10, w: 24, warn: 1.0, dur: 1, perm: true, owner: e }),
+    top, bot,
+  };
+  e.fl.a.free = e.fl.b.free = true;
+  e.fl.a.ekg = e.fl.b.ekg = true;
+  g.ui.banner('FLATLINE', 'Ride the gap', 'warn');
+  g.audio.play('charge');
+}
+
+function updateFlatline(g, e, dt, phase) {
+  const f = e.fl, p = g.player;
+  if (!f) return true;
+  if (f.a.t > f.a.warn) f.x += f.dir * (phase === 3 ? 400 : 340) * dt;
+  if (g.onBeat && f.a.t > f.a.warn && ++f.beats % 2 === 0) {     // the gap jumps on every other beat
+    f.gto = clamp(f.gy + g.rng.range(-230, 230), -ARENA.hh + 180, ARENA.hh - 180);
+    g.audio.play('bossBeat');
+  }
+  f.gy = damp(f.gy, f.gto, 6, dt);
+  const gTop = f.gy - f.half, gBot = f.gy + f.half;
+  f.a.x = f.x; f.a.y = f.top; f.a.len = Math.max(1, gTop - f.top);
+  f.b.x = f.x; f.b.y = f.bot; f.b.len = Math.max(1, f.bot - gBot);
+  if ((f.dir > 0 && f.x >= f.end) || (f.dir < 0 && f.x <= f.end)) {
+    f.a.dead = f.b.dead = true;
+    e.fl = null;
+    return true;
+  }
+  return false;
+}
 
 // ------------------------------------------------------------------ Shatterheart
 // A crystal heart that bursts into shards at 66% and 33%. While shards live the
@@ -361,7 +535,8 @@ function aiShatter(g, e, dt) {
   e.timer -= dt;
   if (e.state === 0) {
     if (e.timer > 0) return;
-    e.atk = (e.atk + 1) % 3;
+    e.atk = (e.atk + 1) % 4;
+    if (e.atk === 3) { crystalPrison(g); e.timer = 2; return; }
     e.state = e.atk + 1;
     e.count = e.atk === 0 ? 4 : e.atk === 2 ? 5 : 1;
     e.timer = e.atk === 1 ? 0 : 0.2;
@@ -383,6 +558,20 @@ function aiShatter(g, e, dt) {
   }
 }
 
+/** A ring of blasts closes around you with a single gap, plus one on top of you. */
+function crystalPrison(g) {
+  const p = g.player, n = 10, R = 235, gap = Math.floor(g.rng.next() * n), a0 = g.rng.angle();
+  const cx = clamp(p.x + p.vx * 0.2, -ARENA.hw + 60, ARENA.hw - 60), cy = clamp(p.y + p.vy * 0.2, -ARENA.hh + 60, ARENA.hh - 60);
+  for (let i = 0; i < n; i++) {
+    if (i === gap) continue;
+    const a = a0 + (i / n) * TAU;
+    g.zones.push({ kind: 'blast', x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 88, t: 0, dur: 1.2, tick: 0, crystal: true });
+  }
+  g.zones.push({ kind: 'blast', x: cx, y: cy, r: 130, t: 0, dur: 1.2, tick: 0, crystal: true });
+  g.fx.text(cx, cy - 60, 'PRISON', COL.ice, 13, 0.9);
+  g.audio.play('telegraph');
+}
+
 function aiShard(g, e, dt) {
   const p = g.player, core = e.core;
   e.rot += dt * 4;
@@ -392,6 +581,7 @@ function aiShard(g, e, dt) {
     const d = steer(e, core.x, core.y, 750, 6, dt);
     if (d < core.r) {
       core.hp = Math.min(core.maxHp, core.hp + core.maxHp * 0.05);
+      g.ringBullets(core.x, core.y, 12, 230, g.rng.angle(), { r: 7 });
       g.fx.ring(core.x, core.y, COL.ice, core.r, core.r * 2, 0.4, 4);
       g.fx.text(core.x, core.y - core.r - 20, 'MENDED', COL.ice, 14, 0.8);
       g.killEnemy(e, true);
@@ -420,7 +610,21 @@ function aiWeaver(g, e, dt) {
   const p = g.player, rage = hpFrac(e) < 0.4;
   e.anchors = e.anchors.filter((a) => !a.dead);
   const d = Math.hypot(p.x - e.x, p.y - e.y), a = toPlayer(g, e);
-  if (d > 520) steer(e, p.x, p.y, 150, 2, dt);
+  if (e.pz) {                                 // Pounce: hang, then leap onto the marked spot
+    const z = e.pz;
+    e.vx = e.vy = 0;
+    const lead = z.dur - 0.4;
+    if (z.t >= lead) {
+      const q = Math.min(1, (z.t - lead) / 0.4);
+      e.x = e.px + (z.x - e.px) * q; e.y = e.py + (z.y - e.py) * q;
+    }
+    if (z.dead || z.t >= z.dur) {
+      g.zones.push({ kind: 'web', x: z.x, y: z.y, r: 120, t: 0, dur: 6, tick: 0, land: 0.05 });
+      g.ringBullets(z.x, z.y, 10, 220, g.rng.angle());
+      e.pz = null;
+    }
+  }
+  else if (d > 520) steer(e, p.x, p.y, 150, 2, dt);
   else if (d < 330) steer(e, e.x - Math.cos(a) * 100, e.y - Math.sin(a) * 100, 150, 2, dt);
   else steer(e, e.x + Math.cos(a + Math.PI / 2) * 100, e.y + Math.sin(a + Math.PI / 2) * 100, 90, 2, dt);
   e.rot = turnToward(e.rot, a, 3 * dt);
@@ -458,9 +662,25 @@ function aiWeaver(g, e, dt) {
   e.armor = e.anchors.length >= 4 ? 0.7 : 1;          // the web shields its maker
 
   e.timer -= dt;
-  if (e.timer <= 0) {
-    e.atk = (e.atk + 1) % 2;
-    if (e.atk === 0) {                      // sticky silk where you're heading
+  if (e.timer <= 0 && !e.pz) {
+    e.atk = (e.atk + 1) % 4;
+    if (e.atk === 2) {                      // pounce
+      const tx = clamp(p.x + p.vx * 0.45, -ARENA.hw + 80, ARENA.hw - 80), ty = clamp(p.y + p.vy * 0.45, -ARENA.hh + 80, ARENA.hh - 80);
+      e.pz = { kind: 'blast', x: tx, y: ty, r: 150, t: 0, dur: 1.05, tick: 0 };
+      e.px = e.x; e.py = e.y;
+      g.zones.push(e.pz);
+      g.audio.play('telegraph');
+      e.timer = rage ? 1.6 : 2.1;
+    } else if (e.atk === 3) {               // egg sacs that hatch unless you break them
+      const sacs = g.enemies.filter((o) => o.type === 'sac' && !o.dead).length;
+      for (let i = sacs; i < 2; i++) {
+        const sa = g.rng.angle(), sx = clamp(e.x + Math.cos(sa) * 120, -ARENA.hw + 60, ARENA.hw - 60), sy = clamp(e.y + Math.sin(sa) * 120, -ARENA.hh + 60, ARENA.hh - 60);
+        const sc = spawnEnemy(g, 'sac', sx, sy, { spawn: 0.4, hpScale: 1 });
+        sc.hp = sc.maxHp = Math.max(60, e.maxHp * 0.035);
+        sc.hatch = 5;
+      }
+      e.timer = 1.2;
+    } else if (e.atk === 0) {               // sticky silk where you're heading
       for (let i = 0; i < 2; i++) {
         const tx = p.x + p.vx * 0.5 + g.rng.range(-90, 90), ty = p.y + p.vy * 0.5 + g.rng.range(-90, 90);
         g.zones.push({ kind: 'web', x: tx, y: ty, r: 95, t: 0, dur: 6.5, tick: 0, land: 0.55 });
@@ -490,7 +710,7 @@ function updateThreads(g, e) {
       pairs.push([u, v]);
     }
   }
-  if (an.length) {
+  if (an.length && !e.pz) {                   // the Weaver lets go of its own thread mid-pounce
     let near = an[0], nd = Infinity;
     for (const o of an) { const dd = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (dd < nd) { nd = dd; near = o; } }
     pairs.push([e, near]);
@@ -508,6 +728,17 @@ function updateThreads(g, e) {
   }
   for (const [key, l] of e.threads) if (!keep.has(key)) l.dead = true;
   e.threads = keep;
+}
+
+function aiSac(g, e, dt) {
+  e.hatch -= dt;
+  e.rot += dt * (1 + 4 * Math.max(0, 1 - e.hatch / 5));
+  if (e.hatch <= 0) {
+    for (let i = 0; i < 5; i++) spawnEnemy(g, 'mote', e.x + g.rng.range(-20, 20), e.y + g.rng.range(-20, 20), { spawn: 0.15 });
+    g.fx.burst(e.x, e.y, COL.lime, 20, 300, 0.5, 4);
+    g.audio.play('enemyBurst');
+    g.killEnemy(e, true);
+  }
 }
 
 function aiAnchor(g, e, dt) {
@@ -537,8 +768,23 @@ function aiMetronome(g, e, dt) {
       e.pend.pendulum = true;
       e.pend.base = a; e.pend.swing = 1.1;
       e.pendBase = a; e.pendT = 0;
+      if (rage) {                                // double pendulum: a second swing behind it
+        e.pend2 = g.addLaser({ x: e.x, y: e.y, ang: a + Math.PI, len: 560, w: 26, warn: 2 * BEAT, dur: 8 * BEAT, owner: e });
+        e.pend2.pendulum = true;
+        e.pend2.base = a + Math.PI; e.pend2.swing = 1.1;
+      }
       g.audio.play('charge');
     }
+    // Rubato: rings that stand still between beats and lurch forward on each one
+    if (cyc === 10 || (rage && cyc === 5)) {
+      for (let i = 0; i < 18; i++) {
+        const b = g.fireBullet(e.x, e.y, a + (i / 18) * TAU, 0, { life: 9, r: 9, kind: 'rubato' });
+        if (b) e.rb.push(b);
+      }
+      g.audio.play('enemyBurst');
+    }
+    e.rb = e.rb.filter((b) => !b.dead);
+    for (const b of e.rb) b.spd = 880;
     const every = rage ? 3 : 4;
     if (e.beat % every === 2 % every) stampTiles(g, e, rage);
     if (rage && e.beat % 4 === 1) g.ringBullets(e.x, e.y, 14, 210, e.beat * 0.26);
@@ -548,6 +794,11 @@ function aiMetronome(g, e, dt) {
     e.pendT += dt;
     e.pend.ang = e.pendBase + Math.sin(e.pendT * Math.PI / (4 * BEAT)) * 1.1;   // one swing every 4 beats
     e.pend.base = e.pendBase;
+    if (e.pend2 && !e.pend2.dead) { e.pend2.ang = e.pend.ang + Math.PI; e.pend2.base = e.pendBase + Math.PI; }
+  }
+  for (const b of e.rb) {
+    b.spd = damp(b.spd, 0, 9, dt);
+    b.vx = Math.cos(b.ang) * b.spd; b.vy = Math.sin(b.ang) * b.spd;
   }
 }
 
@@ -588,9 +839,10 @@ function aiEclipse(g, e, dt) {
   }
   // darkness and the pool of light around the player
   const pulse = phase === 3 ? 0.5 + 0.5 * Math.cos((g.time / BEAT) * Math.PI * 2) : 0;
-  const target = phase === 1 ? 0.78 : phase === 2 ? 0.9 : 0.55 + 0.35 * pulse;
-  e.darkK = damp(e.darkK, e.spawn > 0 ? 0 : target, 1.5, dt);
-  const lightR = phase === 2 ? 290 : 380;
+  const blk = e.state === 8;
+  const target = blk ? 0.97 : phase === 1 ? 0.78 : phase === 2 ? 0.9 : 0.55 + 0.35 * pulse;
+  e.darkK = damp(e.darkK, e.spawn > 0 ? 0 : target, blk ? 3 : 1.5, dt);
+  const lightR = blk ? 170 : phase === 2 ? 290 : 380;
   e.lightR = damp(e.lightR || 600, lightR, 1.2, dt);
   g.dark = { x: p.x, y: p.y, r: e.lightR, k: e.darkK };
   e.reveal = Math.max(0, (e.reveal || 0) - dt * 1.2);
@@ -606,7 +858,7 @@ function aiEclipse(g, e, dt) {
   switch (e.state) {
     case 0: {                                   // choose
       if (e.timer > 0) break;
-      const opts = phase === 1 ? [1, 2, 1] : phase === 2 ? [1, 2, 4, 5] : [1, 6, 7, 2, 4];
+      const opts = phase === 1 ? [1, 2, 1] : phase === 2 ? [1, 2, 4, 5, 8, 9] : [1, 6, 7, 2, 4, 8, 9];
       let pick = g.rng.pick(opts);
       if (pick === e.last) pick = g.rng.pick(opts);
       e.last = pick;
@@ -625,6 +877,16 @@ function aiEclipse(g, e, dt) {
         for (let i = 0; i < 4; i++) g.addLaser({ x: e.x, y: e.y, ang: a0 + (i / 4) * TAU, len: 1300, w: 26, warn: 1.2, dur: 3, owner: e, spin: dir * 0.42 });
         e.reveal = 1; g.audio.play('charge');
         e.state = 0; e.timer = 4.2;
+      } else if (pick === 8) {                    // Blackout: the light all but goes out
+        e.state = 8; e.timer = 3.8; e.eyeT = 0.6;
+        g.ui.banner('BLACKOUT', '', 'warn');
+        g.audio.play('bossRoar');
+      } else if (pick === 9) {                    // coronal mass ejection: a wall of fire with a gap
+        wallBullets(g);
+        if (phase === 3) g.delayed.push({ t: 1.6, fn: () => { if (!e.dead) wallBullets(g); } });
+        e.reveal = 1;
+        g.audio.play('enemyBurst');
+        e.state = 0; e.timer = phase === 3 ? 3 : 2.4;
       } else {                                    // gravity + spiral arms
         e.state = 7; e.timer = 3.6; e.shotT = 0;
       }
@@ -664,6 +926,17 @@ function aiEclipse(g, e, dt) {
         if (e.count <= 0) { e.state = 0; e.timer = 0.9; }
       }
       break;
+    case 8: {                                   // eyes open in the dark around you, then fire
+      e.eyeT -= dt;
+      if (e.eyeT <= 0) {
+        e.eyeT = phase === 3 ? 0.42 : 0.55;
+        const a = g.rng.angle();
+        e.eyes.push({ x: p.x + Math.cos(a) * 330, y: p.y + Math.sin(a) * 330, t: 0 });
+        g.audio.play('telegraph');
+      }
+      if (e.timer <= 0) { e.state = 0; e.timer = 1.2; }
+      break;
+    }
     case 7: {                                   // pull you toward it and spiral
       const dx = e.x - p.x, dy = e.y - p.y, dd = Math.hypot(dx, dy) || 1;
       p.pullX += (dx / dd) * 200; p.pullY += (dy / dd) * 200;
@@ -679,6 +952,33 @@ function aiEclipse(g, e, dt) {
     }
   }
   if (e.state !== 2) e.flare = Math.max(0, (e.flare || 0) - dt * 3);
+  for (const ey of e.eyes) {
+    ey.t += dt;
+    if (ey.t >= 0.6 && !ey.done) {
+      ey.done = true;
+      const a = Math.atan2(p.y - ey.y, p.x - ey.x);
+      for (let i = -1; i <= 1; i++) g.fireBullet(ey.x, ey.y, a + i * 0.16, 310);
+    }
+  }
+  e.eyes = e.eyes.filter((ey) => ey.t < 0.9);
+}
+
+/** A wall of bullets from the roomiest side of the arena, with one gap near the player. */
+function wallBullets(g) {
+  const p = g.player;
+  const room = [ARENA.hw - p.x, ARENA.hw + p.x, ARENA.hh - p.y, ARENA.hh + p.y];   // +x, -x, +y, -y
+  let k = 0;
+  for (let i = 1; i < 4; i++) if (room[i] > room[k]) k = i;
+  const horiz = k < 2, sgn = k % 2 === 0 ? 1 : -1;
+  const dist = Math.min(900, room[k] - 30);
+  const ang = horiz ? (sgn > 0 ? Math.PI : 0) : (sgn > 0 ? -Math.PI / 2 : Math.PI / 2);
+  const span = horiz ? ARENA.hh : ARENA.hw, along = horiz ? p.y : p.x;
+  const gap = clamp(along + g.rng.range(-240, 240), -span + 150, span - 150);
+  for (let s = -span + 30; s <= span - 30; s += 62) {
+    if (Math.abs(s - gap) < 115) continue;
+    const x = horiz ? p.x + sgn * dist : s, y = horiz ? s : p.y + sgn * dist;
+    g.fireBullet(x, y, ang, 235, { life: 10, r: 9 });
+  }
 }
 
 function aiUmbra(g, e, dt) {
@@ -748,8 +1048,10 @@ Object.assign(DEFS, {
       for (const a of e.anchors) if (!a.dead) g.killEnemy(a, true);
       for (const l of e.threads.values()) l.dead = true;
       for (const z of g.zones) if (z.kind === 'web') z.dead = true;
+      for (const o of g.enemies) if (o.type === 'sac' && !o.dead) g.killEnemy(o, true);
     },
   },
+  sac: { hp: 60, speed: 0, r: 20, xp: 3, threat: 0, col: 'lime', ai: aiSac, noMove: true, noCharm: true, noElite: true, heavy: true, noSep: true, contact: false, score: 80 },
   anchor: {
     hp: 200, speed: 32, r: 17, xp: 2, threat: 0, col: 'lime', ai: aiAnchor, noCharm: true, noElite: true, heavy: true, noSep: true, score: 100,
     onDeath(g, e) {                         // a cut thread snaps back and wounds the Weaver
@@ -764,11 +1066,11 @@ Object.assign(DEFS, {
   },
   metronome: {
     ...bossBase, name: 'THE METRONOME', hp: 32000, speed: 110, r: 62, xp: 220, col: 'amber', score: 6000, ai: aiMetronome,
-    init(g, e) { e.beat = -1; e.bar = 0; e.pend = null; e.timer = 1; },
+    init(g, e) { e.beat = -1; e.bar = 0; e.pend = null; e.pend2 = null; e.rb = []; e.timer = 1; },
   },
   eclipse: {
     ...bossBase, name: 'THE ECLIPSE', hp: 140000, speed: 260, r: 66, xp: 500, col: 'gold', score: 15000, ai: aiEclipse,
-    init(g, e) { e.phase = 0; e.timer = 2.5; e.darkK = 0; e.odir = 1; e.last = 0; },
+    init(g, e) { e.phase = 0; e.timer = 2.5; e.darkK = 0; e.odir = 1; e.last = 0; e.eyes = []; },
     onDeath(g, e) { g.dark = null; for (const u of g.enemies) if (u.type === 'umbra' && !u.dead) g.killEnemy(u, true); },
   },
   umbra: {

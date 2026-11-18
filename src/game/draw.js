@@ -1,6 +1,6 @@
 // Turns simulation state into shape instances. Read-only with respect to the game.
 
-import { COL, PLAYER, BPM } from '../config.js';
+import { COL, PLAYER, BPM, SECTOR_BY_ID } from '../config.js';
 import { TAU, clamp } from '../core/math.js';
 
 const S = [0, 0, 0];
@@ -18,8 +18,10 @@ export function drawGame(g, B, glyphs) {
   const vis = (x, y, m = 0) => Math.abs(x - cam.x) < vx + m && Math.abs(y - cam.y) < vy + m;
   const beat = Math.exp(-((t * BPM / 60) % 1) * 5);
 
+  drawHazards(g, B, t, vis);
   drawZones(g, B, t, vis);
   drawLasers(g, B, t);
+  if (g.gates) drawGates(g, B, glyphs, t);
   drawPickups(g, B, t, vis);
   drawStrings(g, B, t);
   for (const e of g.enemies) if (!e.dead && vis(e.x, e.y, e.r + 700)) drawEnemy(g, B, e, t, beat);
@@ -44,9 +46,16 @@ function drawZones(g, B, t, vis) {
     const k = clamp(z.t / z.dur, 0, 1);
     switch (z.kind) {
       case 'blast': {
+        if (z.t < 0) break;
         const fl = 0.5 + 0.5 * Math.sin(t * 30);
-        B.ring(z.x, z.y, z.r, COL.red, 0.7 + 0.3 * fl, 2.5, 1);
-        B.push(0, z.x, z.y, z.r * k, z.r * k, 0, COL.red, 0.5, 0, 0.35 + 0.25 * fl, 0);
+        const bc = z.flare ? COL.orange : z.crystal ? COL.ice : z.fall ? COL.violet : COL.red;
+        B.ring(z.x, z.y, z.r, bc, 0.7 + 0.3 * fl, 2.5, 1);
+        B.push(0, z.x, z.y, z.r * k, z.r * k, 0, bc, 0.5, 0, 0.35 + 0.25 * fl, 0);
+        if (z.flare) B.glow(z.x, z.y, z.r * 1.4 * k, z.r * 1.4 * k, 0, COL.amber, 0.35 * k);
+        if (z.fall) {                              // the Monolith's shadow, growing as it falls
+          B.circle(z.x, z.y, z.r * (0.3 + 0.6 * k), [0.04, 0.02, 0.08], 0.8, 0, 1, 0, 1);
+          B.box(z.x, z.y, 40 * (0.4 + 0.6 * k), 40 * (0.4 + 0.6 * k), t, COL.violet, 0.4 + 0.5 * k, 2, 0.2, 1, 0, 4);
+        }
         break;
       }
       case 'tile': {                            // Metronome floor tile, lands on the beat
@@ -111,6 +120,64 @@ function drawZones(g, B, t, vis) {
   }
 }
 
+// ------------------------------------------------------------------ stage hazards
+function drawHazards(g, B, t, vis) {
+  const hz = g.hz;
+  if (!hz) return;
+  if (hz.prisms) for (const pr of hz.prisms) {
+    if (!vis(pr.x, pr.y, 60)) continue;
+    const c = tint(COL.ice, COL.white, pr.hit).slice();
+    B.glow(pr.x, pr.y, 90, 90, 0, COL.ice, 0.25 + 0.3 * pr.hit);
+    B.star(pr.x, pr.y, pr.r * 1.25, 4, pr.rot, c, 1, 2.4, 0.35, 1, 0.9, 0.55);
+    B.star(pr.x, pr.y, pr.r * 0.6, 4, -pr.rot * 1.4, COL.pink, 0.9, 1.6, 0.3, 1, 0, 0.5);
+  }
+  if (hz.pylons) for (const py of hz.pylons) {
+    if (py.ax === undefined) continue;
+    for (const [x, y] of [[py.ax, py.ay], [py.bx, py.by]]) {
+      B.ngon(x, y, 22, 6, t * 0.8, tint(COL.blue, COL.white, py.glow).slice(), 1, 2.4, 0.3, 1, 0.9);
+      B.circle(x, y, 7 + 5 * py.glow, COL.cyan, 1, 0, 1, 1 + py.glow, 0);
+    }
+    if (!(py.arc && !py.arc.dead)) B.line(py.ax, py.ay, py.bx, py.by, 1, COL.blue, 0.12, 0);
+  }
+  if (hz.rifts) for (const rf of hz.rifts) {
+    if (!vis(rf.x, rf.y, rf.R)) continue;
+    B.circle(rf.x, rf.y, rf.core, [0.02, 0.0, 0.04], 1, 0, 1, 0, 1);
+    B.ring(rf.x, rf.y, rf.core, COL.hot, 0.9, 2.5, 1.2);
+    for (let i = 0; i < 4; i++) {
+      const rr = rf.R * (1 - ((t * 0.5 + i / 4) % 1));
+      B.ring(rf.x, rf.y, rr, COL.violet, 0.35 * (1 - rr / rf.R), 1.5, 0.5);
+    }
+    for (let i = 0; i < 3; i++) B.arc(rf.x, rf.y, rf.core * 2.2, -t * 2.2 + (i / 3) * TAU, 0.7, 2.5, COL.pink, 0.7, 1);
+  }
+  if (hz.fx !== undefined) {                    // currents: streaks drifting with the flow
+    const S = Math.hypot(hz.fx, hz.fy) || 1, ux = hz.fx / S, uy = hz.fy / S, cam = g.cam;
+    const W = g.viewHalf.x + 200, H = g.viewHalf.y + 200;
+    for (let i = 0; i < 70; i++) {
+      const h1 = ((i * 7919) % 1000) / 1000, h2 = ((i * 104729) % 1000) / 1000;
+      const off = ((t * S * 1.4 + i * 137) % 700) - 350;
+      const x = cam.x + (h1 * 2 - 1) * W + ux * off, y = cam.y + (h2 * 2 - 1) * H + uy * off;
+      const L = 26 + 30 * h2;
+      B.line(x, y, x + ux * L, y + uy * L, 1.4, COL.teal, 0.22 * Math.min(1, S / 100), 0.5);
+    }
+  }
+}
+
+function drawGates(g, B, glyphs, t) {
+  for (const gt of g.gates) {
+    const sec = SECTOR_BY_ID[gt.id], c = sec.c3, k = Math.min(1, gt.t * 2);
+    const r = gt.r * (0.6 + 0.4 * k);
+    B.glow(gt.x, gt.y, r * 2.6, r * 2.6, 0, sec.grid, 0.55 * k);
+    B.circle(gt.x, gt.y, r, sec.c1, 0.85 * k, 0, 1, 0, 1);
+    B.ring(gt.x, gt.y, r, c, k, 3.5, 1.4);
+    B.ring(gt.x, gt.y, r * 1.18 + 4 * Math.sin(t * 4), sec.grid, 0.6 * k, 1.5, 1);
+    for (let i = 0; i < 4; i++) B.arc(gt.x, gt.y, r * (0.45 + 0.12 * i), t * (2 + i * 0.6) * (i % 2 ? -1 : 1) + i, 0.9, 2.5, i % 2 ? COL.white : c, 0.7 * k, 1);
+    if (glyphs) {
+      glyphs.draw(B, sec.name, gt.x, gt.y - r - 46, 15, [1.6, 1.6, 1.6], k);
+      glyphs.draw(B, sec.hazard, gt.x, gt.y + r + 34, 11, c, k * 0.9);
+    }
+  }
+}
+
 function drawLasers(g, B, t) {
   for (const l of g.lasers) {
     if (l.dead) continue;
@@ -119,10 +186,33 @@ function drawLasers(g, B, t) {
       B.arc(l.x, l.y, l.len + 10, l.base, l.swing + 0.08, 1.2, COL.amber, 0.25, 0.5);
     }
     const x2 = l.x + Math.cos(l.ang) * l.len, y2 = l.y + Math.sin(l.ang) * l.len;
+    const lc = l.kind === 'comet' ? COL.ice : l.kind === 'arc' ? COL.cyan : l.ekg ? COL.hot : COL.red;
     if (l.t < l.warn) {
       const k = l.t / l.warn;
       const fl = 0.5 + 0.5 * Math.sin(t * (14 + k * 40));
-      B.line(l.x, l.y, x2, y2, 1.2 + k * 2, COL.red, (0.25 + 0.5 * k) * (0.6 + 0.4 * fl), 0.5);
+      B.line(l.x, l.y, x2, y2, 1.2 + k * 2, lc, (0.25 + 0.5 * k) * (0.6 + 0.4 * fl), 0.5);
+    } else if (l.kind === 'comet') {             // a comet tearing along its streak
+      const q = clamp((l.t - l.warn) / l.dur, 0, 1), fade = 1 - q;
+      B.line(l.x, l.y, x2, y2, l.w * 0.45 * fade + 2, COL.ice, 1.1 * fade + 0.2, 1);
+      B.line(l.x, l.y, x2, y2, l.w * 0.15 * fade + 1, COL.white, fade, 0);
+      const hx = l.x + (x2 - l.x) * q, hy = l.y + (y2 - l.y) * q;
+      B.star(hx, hy, 26, 5, t * 12, COL.white, 1, 2.5, 0.9, 1, 0);
+      B.glow(hx, hy, 160, 26, l.ang, COL.ice, 1);
+    } else if (l.kind === 'arc') {              // tesla arc: a jittering bolt
+      const n = 9, nx = -Math.sin(l.ang), ny = Math.cos(l.ang);
+      let px = l.x, py = l.y;
+      for (let i = 1; i <= n; i++) {
+        const f = i / n, j = i === n ? 0 : Math.sin(t * 71 + i * 3.7) * 18 + Math.sin(t * 43 + i * 9.1) * 10;
+        const qx = l.x + (x2 - l.x) * f + nx * j, qy = l.y + (y2 - l.y) * f + ny * j;
+        B.line(px, py, qx, qy, 6, COL.cyan, 1.2, 1);
+        B.line(px, py, qx, qy, 2, COL.white, 1, 0);
+        px = qx; py = qy;
+      }
+    } else if (l.ekg) {                          // Flatline wall
+      const fl = 0.85 + 0.15 * Math.sin(t * 50);
+      B.line(l.x, l.y, x2, y2, l.w * 0.5 * fl, COL.hot, 1.3, 1);
+      B.line(l.x, l.y, x2, y2, l.w * 0.18, COL.white, 1.1, 0);
+      B.circle(x2, y2, 9, COL.white, 1, 0, 1, 1.2, 0);
     } else if (l.thread) {                       // Weaver silk
       const fl = 0.8 + 0.2 * Math.sin(t * 23 + l.x * 0.01);
       B.line(l.x, l.y, x2, y2, l.w * 0.42 * fl, COL.lime, 1.1, 1);
@@ -165,6 +255,11 @@ function drawEnemy(g, B, e, t, beat) {
   }
   let a = 1;
   if (e.faded) a = 0.13 + 0.05 * Math.sin(t * 8 + e.seed * 10);
+  const dk = g.dark;
+  if (dk && dk.hz) {                          // Dimming: the swarm hides outside your light
+    const dd = Math.hypot(e.x - dk.x, e.y - dk.y);
+    a *= 1 - 0.78 * dk.k * clamp((dd - dk.r * 0.75) / (dk.r * 0.5), 0, 1);
+  }
   // status tinting
   let c = base;
   if (e.charm > 0) c = COL.rose;
@@ -339,6 +434,23 @@ function drawEnemy(g, B, e, t, beat) {
       if (e.armor < 1) B.ring(x, y, r * 1.45, COL.lime, 0.45 + 0.2 * Math.sin(t * 5), 1.4, 1);
       break;
     }
+    case 'pod': {
+      const sw = clamp((e.swell || 0) / 0.75, 0, 1), pul = 0.5 + 0.5 * Math.sin(t * (4 + sw * 30) + e.seed * 9);
+      B.circle(x, y, r * (1 + 0.3 * sw + 0.04 * pul), sw > 0.05 ? tint(c, COL.white, sw * pul).slice() : c, a, 2.2, 0.25 + 0.3 * sw, 1);
+      for (let i = 0; i < 5; i++) {
+        const an = rot + (i / 5) * TAU;
+        B.circle(x + Math.cos(an) * r * 0.5, y + Math.sin(an) * r * 0.5, r * 0.16, COL.lime, a, 0, 0.9, 0.8, 0);
+      }
+      if (sw > 0.05) B.ring(x, y, 130 + r, COL.lime, 0.3 * sw, 1.2, 0.5);
+      break;
+    }
+    case 'sac': {
+      const q = clamp(1 - e.hatch / 5, 0, 1), pul = 0.5 + 0.5 * Math.sin(t * (3 + q * 20));
+      B.circle(x, y, r * (1 + 0.1 * pul * q), c, a, 2, 0.2 + 0.4 * q * pul, 1);
+      B.arc(x, y, r * 1.45, -Math.PI / 2 + q * Math.PI, q * Math.PI, 2, COL.lime, 0.7, 0.8);
+      for (let i = 0; i < 3; i++) B.circle(x + Math.cos(rot + i * 2.1) * r * 0.4, y + Math.sin(rot + i * 2.1) * r * 0.4, 3, COL.white, a, 0, 1, 0.6, 0);
+      break;
+    }
     case 'anchor':
       B.star(x, y, r * 1.2, 6, rot, c, a, 2, 0.4);
       B.circle(x, y, r * 0.38, COL.white, a, 0, 1, 1, 0);
@@ -376,6 +488,13 @@ function drawEnemy(g, B, e, t, beat) {
         const ex = x + Math.cos(ea) * r * 0.35 + Math.cos(ea + Math.PI / 2) * s * r * 0.28;
         const ey = y + Math.sin(ea) * r * 0.35 + Math.sin(ea + Math.PI / 2) * s * r * 0.28;
         B.circle(ex, ey, 4.5 + 4 * fl, fl > 0.2 ? COL.red : COL.gold, 1, 0, 1, 1.3 + fl, 0);
+      }
+      for (const ey of e.eyes || []) {                       // Blackout: eyes opening in the dark
+        const q = clamp(ey.t / 0.6, 0, 1), ea2 = Math.atan2(g.player.y - ey.y, g.player.x - ey.x);
+        B.glow(ey.x, ey.y, 70, 40, ea2 + Math.PI / 2, q > 0.7 ? COL.red : COL.gold, 0.25 + 0.5 * q);
+        for (const s2 of [-1, 1]) {
+          B.circle(ey.x + Math.cos(ea2 + Math.PI / 2) * s2 * 17, ey.y + Math.sin(ea2 + Math.PI / 2) * s2 * 17, 6 + 6 * q, q > 0.7 ? COL.red : COL.gold, 0.5 + 0.5 * q, 0, 1, 1.4 + q, 0);
+        }
       }
       break;
     }
@@ -450,6 +569,12 @@ function drawBullets(g, B, t, vis) {
     const a = Math.min(1, b.t * 10) * Math.min(1, b.life * 3);
     if (b.kind === 'bheart') {
       B.broken(b.x, b.y, b.r + 3, b.ang, COL.hot, a, 2, 0.5, 1, 0.8);
+    } else if (b.kind === 'spore') {
+      B.circle(b.x, b.y, b.r, COL.lime, a * 0.9, 1.4, 0.35, 0.8, 0.6);
+      B.circle(b.x, b.y, b.r * 0.35, COL.white, a * 0.6, 0, 1, 0.5, 0);
+    } else if (b.kind === 'rubato') {
+      const mv = clamp(b.spd / 880, 0, 1);
+      B.ngon(b.x, b.y, b.r + 2, 4, b.ang + Math.PI / 4, tint(COL.amber, COL.white, mv).slice(), a, 1.8, 0.4 + 0.4 * mv, 1, 0.8);
     } else if (b.kind === 'mine') {
       const pul = 0.5 + 0.5 * Math.sin(t * 7 + b.x);
       B.star(b.x, b.y, b.r + 3, 4, t * 1.5, COL.amber, a, 1.8, 0.3 + 0.5 * pul, 1, 0.8, 0.5);

@@ -43,15 +43,27 @@ It needs a browser with WebGL2 (any current Firefox, Chrome, Edge or Safari).
 
 From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 
-**Bosses.** Sectors 1 to 3 each pick one of two bosses per run, so runs differ:
+**Sectors and the route.** A run crosses 5 tiers of 5 waves. After each boss, two **warp gates** open; fly into one to choose the next sector. Every sector has its own hazard, and each one is as much a weapon as a threat:
 
-| Sector | Boss |
+| Tier | Sector options | Hazard |
+|---|---|---|
+| 1 | Azure Drift | **Comets** streak across the arena and hit enemies too |
+| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** pop when you get close (shoot them for XP) / **Prisms** split your hearts and enemy bullets in three |
+| 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and burn enemies / **Tesla pylons** arc lightning that shocks everything between them |
+| 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in / **Currents** push everything and keep turning |
+| 5 | Black Corona | **Dimming**: the light fails and enemies hide in the dark |
+
+Hazards pause during boss fights.
+
+**Bosses.** Tiers 1 to 3 each pick one of two bosses per run, independent of the sector you chose:
+
+| Tier | Boss |
 |---|---|
-| 1 Azure Drift | **The Monolith** (shield plates, spinning lasers, chasing slams) or **Shatterheart** (a crystal heart that bursts into shards; kill them before they fly home and heal it) |
-| 2 Verdant Rift | **Binary** (twin stars joined by a deadly beam; the survivor enrages) or **The Weaver** (spins a cage of laser threads around you; every anchor you cut wounds it) |
-| 3 Ember Reach | **Ouroboros** (a giant serpent that charges and sheds its tail) or **The Metronome** (attacks on the music's beat: a swinging pendulum and checkerboard floor tiles) |
-| 4 The Hollow | **The Hollow Heart** (three phases; the last closes the arena in on you) |
-| 5 Black Corona | **The Eclipse**, the final boss (swallows the light; it hunts you from the dark, sends decoys, then burns as a diamond ring) |
+| 1 | **The Monolith** (shield plates it hurls at you, spinning lasers, chasing slams; enraged, it falls from the sky) or **Shatterheart** (bursts into shards that heal it if they fly home; locks you in a crystal prison) |
+| 2 | **Binary** (twin stars joined by a deadly tether that sheds bullet walls and scissors shut; the survivor enrages) or **The Weaver** (a cage of laser threads, pounces, and egg sacs that hatch) |
+| 3 | **Ouroboros** (charges, mines, and coils around you) or **The Metronome** (on the beat: pendulum lasers, checkerboard tiles, and bullets that only move on the beat) |
+| 4 | **The Hollow Heart** (three phases: seeking hearts, gapped rings, a Flatline wall to ride through, a closing arena) |
+| 5 | **The Eclipse**, the final boss (hunts you from the dark, Blackouts, walls of coronal fire, then burns as a diamond ring) |
 
 Touching a boss costs two hearts.
 
@@ -92,7 +104,7 @@ src/config.js             tunables: arena, player stats, XP curve, sector palett
 src/core/                 math, seeded RNG, spatial grid, input, save
 src/gfx/                  WebGL2 renderer: instanced SDF shapes, bloom, distortion, particles
 src/audio/                procedural sound effects and generative synthwave music
-src/game/                 the simulation: game, player, weapons, enemies, bosses, waves, upgrades
+src/game/                 the simulation: game, player, weapons, enemies, bosses, hazards, waves, upgrades
 src/ui/                   HUD, menus, SVG icons
 tools/                    dev server, headless test suite, shape gallery
 ```
@@ -108,7 +120,8 @@ node tools/sim-test.js --balance 8   # also survey 8 seeded bot runs
 
 The suite checks:
 - the skill and fusion catalogue;
-- a full 25-wave run into endless mode, with every enemy and the planned bosses spawning;
+- a full 25-wave run into endless mode, with every enemy and the planned bosses spawning and the warp-gate route being followed;
+- every sector's hazard firing without stalling its waves;
 - a build with every skill and fusion active;
 - each of the 9 bosses being beatable;
 - no NaNs and bounded entity counts throughout.
@@ -122,6 +135,8 @@ These are for development. Add them to the URL, e.g. `index.html?debug&wave=10`.
 | `debug` | FPS and entity counters |
 | `wave=N` | Start at wave N (5/10/15/20/25 are bosses) |
 | `boss=TYPE` | Force a boss for its sector, e.g. `boss=weaver&wave=10` |
+| `sector=ID` | Play that sector, e.g. `sector=storm&wave=12` (ids: azure, verdant, crystal, ember, storm, hollow, tidal, corona) |
+| `route=a,b,c` | Fix the sectors after the first, e.g. `route=crystal,storm,tidal` |
 | `skills=a,b` / `fus=x,y` | Start with those skills maxed and those fusions |
 | `god` | Invulnerable |
 | `half` / `max` / `max=beam` | Start with a mid-run build, or every skill and fusion (Love Beam only with `max=beam`) |

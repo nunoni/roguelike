@@ -1,10 +1,11 @@
 // Wave director: spends a per-wave threat budget on a mix of unlocked enemy
 // types, runs boss waves, and paces the breathers in between.
 
-import { ARENA, WAVES_PER_SECTOR, FINAL_WAVE, SECTORS } from '../config.js';
+import { ARENA, WAVES_PER_SECTOR, FINAL_WAVE, ROUTE_TIERS } from '../config.js';
 import { clamp } from '../core/math.js';
 import { DEFS, spawnEnemy } from './enemies.js';
 import { spawnBoss } from './bosses.js';
+import { resetHazards, clearHazards } from './hazards.js';
 
 export const UNLOCK = [
   ['drifter', 1], ['mote', 2], ['lancer', 3], ['spitter', 4], ['splitter', 6], ['bomber', 7], ['warden', 8],
@@ -50,11 +51,12 @@ export class Waves {
     this.hpScale = (1 + 0.22 * w + 0.056 * w * w) * (n > FINAL_WAVE ? Math.pow(1.25, n - FINAL_WAVE) : 1);
     this.spdScale = 1 + Math.min(0.35, 0.012 * w) + (n > FINAL_WAVE ? Math.min(0.4, 0.02 * (n - FINAL_WAVE)) : 0);
     this.boss = n % WAVES_PER_SECTOR === 0;
-    const sector = SECTORS[Math.floor((n - 1) / WAVES_PER_SECTOR) % SECTORS.length];
+    const sector = g.sector;
+    resetHazards(g);
 
     if (this.boss) {
       const idx = n / WAVES_PER_SECTOR - 1;
-      this.bossScale = Math.pow(2.6, Math.floor(idx / SECTORS.length));
+      this.bossScale = Math.pow(2.6, Math.floor(idx / ROUTE_TIERS.length));
       const b = spawnBoss(g, idx);
       this.budget = 0;
       this.cap = 6 + n * 0.8;
@@ -79,7 +81,7 @@ export class Waves {
     }
     this.mix = mix;
     const first = (n - 1) % WAVES_PER_SECTOR === 0;
-    g.ui.banner(`WAVE ${n}`, first ? sector.name : '', first ? 'sector' : 'wave');
+    g.ui.banner(`WAVE ${n}`, first ? `${sector.name} · ${sector.hazard}` : '', first ? 'sector' : 'wave');
     g.audio.play('waveStart');
     g.audio.setIntensity(n < 4 ? 1 : 2);
   }
@@ -112,6 +114,7 @@ export class Waves {
     const g = this.g;
     if (g.player.dead) return;
     if (this.state === 'inter') {
+      if (g.gates) return;                 // the route choice holds the next wave
       this.timer -= dt;
       if (this.timer <= 0) this.start(this.n + 1);
       return;
@@ -123,7 +126,7 @@ export class Waves {
       if (e.dead) continue;
       count[e.type] = (count[e.type] || 0) + 1;
       if (!e.boss) threat += e.def.threat || 0;
-      if (!e.def.untargetable) alive++;
+      if (!e.def.untargetable && !e.def.hazard) alive++;
     }
     this.aliveThreat = threat;
 
@@ -151,10 +154,13 @@ export class Waves {
     this.state = 'inter';
     this.vacuum = true;
     this.timer = boss ? 6.5 : 3.2;
+    clearHazards(g, true);
     g.score += 250 * this.n;
     if (boss) {
       const done = this.n >= FINAL_WAVE && !g.endless && this.n === FINAL_WAVE;
       g.ui.banner(done ? 'THE VOID IS SILENT' : 'SECTOR CLEAR', done ? '' : 'Heart container dropped', 'clear');
+      // once the loot has been vacuumed up, offer the next leg of the route
+      if (!done || g.endless) g.delayed.push({ t: 2.6, fn: () => { if (!g.player.dead) g.openGates(); } });
     } else g.audio.play('waveClear');
     g.audio.setIntensity(1);
   }

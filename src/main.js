@@ -1,6 +1,6 @@
 // Boot, main loop and the glue between simulation, renderer, audio and UI.
 
-import { ARENA, SECTORS, QUALITY } from './config.js';
+import { ARENA, SECTORS, QUALITY, ROUTE_TIERS } from './config.js';
 import { Renderer } from './gfx/renderer.js';
 import { Fx } from './gfx/fx.js';
 import { AudioSys, nullAudio } from './audio/audio.js';
@@ -122,6 +122,14 @@ function boot() {
       for (const id of (params.get('fus') || '').split(',')) if (FUSIONS.some((f) => f.id === id)) game.fusions[id] = true;
       game.setStats();
     }
+    if (params.has('route')) {                  // dev: ?route=crystal,storm,tidal fixes the sectors after the first
+      const ids = params.get('route').split(',');
+      game.route = [ROUTE_TIERS[0][0], ...ids.filter((id, i) => ROUTE_TIERS[i + 1] && ROUTE_TIERS[i + 1].includes(id))];
+    }
+    if (params.has('sector')) {                 // dev: ?sector=storm&wave=11 plays that sector
+      const id = params.get('sector'), ti = ROUTE_TIERS.findIndex((t) => t.includes(id));
+      if (ti >= 0) game.route = [...ROUTE_TIERS.slice(0, ti).map((t, i) => game.route[i] || t[0]), id];
+    }
     if (params.has('wave')) { game.waves.n = Number(params.get('wave')) - 1; game.waves.timer = 0.5; }
     if (params.has('stress')) {
       for (let i = 0; i < 400; i++) spawnEnemy(game, ['drifter', 'mote', 'spitter', 'splitter'][i % 4], (Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 2000, {});
@@ -217,6 +225,7 @@ function boot() {
     }
     const wells = [];
     for (const z of g.zones) if (z.kind === 'well' && !z.dead) wells.push({ x: z.x, y: z.y, r: z.r, k: 0.55 * Math.min(1, z.t * 3) * Math.min(1, (z.dur - z.t) * 3) });
+    if (g.hz && g.hz.rifts) for (const rf of g.hz.rifts) wells.push({ x: rf.x, y: rf.y, r: rf.R * 0.7, k: 0.5 });
     renderer.render({
       cam: g.cam, time: vtime, sector: pal, fx, arena: ARENA, wells, ring: g.ringArena, danger, dark: g.dark,
       fade: mode === 'title' ? 0.3 : 0,
