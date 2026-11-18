@@ -28,7 +28,7 @@ export const SKILLS = [
   { id: 'crit', name: 'Crush', cat: 'stat', max: 5, desc: '+8% critical chance, harder crits.', lv: (l) => `${5 + 8 * l}% crit, x${(2 + 0.15 * l).toFixed(2)}` },
   { id: 'dmg', name: 'Passion', cat: 'stat', max: 5, desc: '+20% damage.', lv: (l) => `+${20 * l}% damage` },
   { id: 'speed', name: 'Lighthearted', cat: 'stat', max: 5, desc: '+8% move speed, faster dash recharge.', lv: (l) => `+${8 * l}% speed` },
-  { id: 'stars', name: 'Shooting Stars', cat: 'spell', max: 4, desc: 'Stars fall on random enemies.', lv: (l) => `Every ${(1.7 - 0.25 * l).toFixed(2)}s` },
+  { id: 'stars', name: 'Shooting Stars', cat: 'spell', max: 4, desc: 'Stars fall on random enemies. Higher levels call more and bigger stars.', lv: (l) => `${STAR_N[l]} star${STAR_N[l] > 1 ? 's' : ''} every ${(1.7 - 0.1 * l).toFixed(1)}s, radius ${95 + 15 * l}` },
   { id: 'beat', name: 'On the Beat', cat: 'tech', max: 4, desc: 'On every beat of the music your next volley always crits and hits harder.', lv: (l) => `Beat volleys +${20 * l}% damage${l >= 3 ? ', +1 heart' : ''}` },
   { id: 'flutter', name: 'Butterflies', cat: 'spell', max: 4, desc: 'Butterflies flutter around you and dart at enemies.', lv: (l) => `${FLUTTER_N[l]} butterflies` },
   { id: 'envy', name: 'Jealousy', cat: 'tech', max: 4, desc: 'Hits stack Jealousy: the enemy takes more damage from everything.', lv: (l) => `+${(1.5 * l).toFixed(1)}% damage taken per stack, up to 5` },
@@ -36,6 +36,7 @@ export const SKILLS = [
 ];
 
 const FLUTTER_N = [0, 2, 3, 4, 6];
+const STAR_N = [0, 1, 2, 2, 3];
 
 // type 'pair': each skill's signature fusion. type 'cross': mixes skills from
 // different pairs. A skill can only ever be spent on one fusion per run.
@@ -141,6 +142,8 @@ export function computeStats(L, F, bonusHp = 0) {
     shield: l('shield'),
     dash: l('dash'),
     stars: l('stars'),
+    starN: STAR_N[l('stars')],
+    starR: 95 + 15 * l('stars'),
     spellRate: 1 + 0.09 * l('rate'),
     beat: l('beat'),
     flutter: FLUTTER_N[l('flutter')] * (F.ballroom ? 2 : 1),

@@ -138,14 +138,17 @@ export function updateSpells(g, input, dt) {
   if (st.stars > 0) {
     T.stars -= dt;
     if (T.stars <= 0) {
-      T.stars += (1.7 - 0.25 * st.stars) * (st.fus.stardust ? 0.5 : 1) / st.spellRate;
+      T.stars += (1.7 - 0.1 * st.stars) * (st.fus.stardust ? 0.5 : 1) / st.spellRate;
       const cands = [];
       for (const e of g.enemies) {
         if (g.hittable(e) && !e.def.untargetable && Math.abs(e.x - p.x) < 800 && Math.abs(e.y - p.y) < 520) cands.push(e);
       }
-      if (cands.length) {
-        const e = g.rng.pick(cands);
-        g.zones.push({ kind: 'meteor', x: e.x + e.vx * 0.3, y: e.y + e.vy * 0.3, r: 95, t: 0, dur: 0.45, tick: 0, dmg: st.damage * (2 + 0.6 * st.stars) });
+      // several stars per cast, each on a different enemy when there are enough
+      for (let k = 0; k < st.starN && cands.length; k++) {
+        const i = Math.floor(g.rng.next() * cands.length), e = cands[i];
+        if (cands.length > st.starN - k) cands.splice(i, 1);
+        const j = k * 0.08;                                  // a short cascade, not one thud
+        g.zones.push({ kind: 'meteor', x: e.x + e.vx * (0.3 + j), y: e.y + e.vy * (0.3 + j), r: st.starR, t: -j, dur: 0.45, tick: 0, dmg: st.damage * (2 + 0.6 * st.stars) });
       }
     }
   }

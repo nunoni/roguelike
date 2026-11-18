@@ -75,7 +75,7 @@ function drawZones(g, B, t, vis) {
         if (z.t < 0) break;                       // queued (Singularity)
         B.ring(z.x, z.y, z.r * (1 - k * 0.6), COL.gold, 0.5 + k * 0.5, 2, 0.6);
         const sx = z.x - 260 * (1 - k), sy = z.y - 520 * (1 - k);
-        B.star(sx, sy, 20, 5, t * 9, COL.gold, 1, 2.5, 0.9, 1, 0);
+        B.star(sx, sy, 20 * z.r / 95, 5, t * 9, COL.gold, 1, 2.5, 0.9, 1, 0);
         B.glow(sx - 26, sy - 52, 90, 12, Math.atan2(520, 260), COL.gold, 0.9);
         break;
       }
