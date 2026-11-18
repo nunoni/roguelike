@@ -74,6 +74,19 @@ const ICONS = {
   kiss: BUTTERFLY + heart(12, 12.500, 7, true),
   livewire: heart(5, 16, 8, true) + heart(19, 8, 8, true) + p('M8 15l3-5 2 4 3-5'),
   heartache: `<path transform="translate(12 13) scale(17)" d="${HEART}" vector-effect="non-scaling-stroke" fill="currentColor" fill-opacity=".3"/>` + p('M12 8.500l-2 3.500 3 2.500-2 4.500') + c(12, 12, 10.500, 'stroke-dasharray="1.200 2.800"'),
+
+  // ---- the newer arsenal
+  ex: heart(9, 12.5, 13, true) + p('M14.5 5.5c6 .5 7.5 10 1.5 13') + p('M16 18.5l-.8-3.4M16 18.5l3.3-1'),
+  whip: p('M3 20.5c4-1.5 3.5-7.5 8.5-8.5s5-6 7-7.500') + p('M6.5 15l-2.2-.8M10.5 12.3l-1-2.300M15 10l1.900-1.300M8.400 18l1.600 1.500') + heart(19.5, 4, 6, true),
+  mirror: c(12, 13.5, 7.5, 'fill="currentColor" fill-opacity=".25"') + p('M4.5 13.5h15M5.500 10h13M5.500 17h13M12 6v15M8.500 7c-1.800 4-1.800 9 0 13M15.500 7c1.800 4 1.800 9 0 13M12 2v4') + p('M20 3l1 1M21.500 6.500h1.500'),
+  letter: p('M3 6.500h18v12H3zM3 6.500l9 7 9-7') + heart(12, 16, 5, true),
+  whiplash: heart(12, 12.500, 9, true) + c(12, 12, 8.500, 'stroke-dasharray="3 2.200"') + p('M20.500 12l1.800-1.800M3.500 12l-1.800 1.800M12 3.500l1.800-1.800M12 20.500l-1.800 1.800'),
+  fanmail: p('M7 10h13v9.500H7zM7 10l6.500 5 6.500-5') + p('M2.500 3.500l3 3M1.500 10h3.500M8.500 2v3.500') + c(13.500, 6, 1.200, 'fill="currentColor"'),
+  quiver: c(12, 12, 8.500) + c(12, 12, 3.500, 'fill="currentColor" fill-opacity=".35"') + p('M12 12L21.500 2.500M18 2.500h3.500V6M12 12L2.500 7M12 12l-4 9.500'),
+  lasertag: p('M2.500 19.500L8.500 5l6.500 14.500L21.500 5') + c(8.500, 5, 1.600, 'fill="currentColor"') + c(15, 19.500, 1.600, 'fill="currentColor"') + c(21.500, 5, 1.600, 'fill="currentColor"'),
+  goldrush: c(17, 7, 4.500, 'fill="currentColor" fill-opacity=".35"') + p('M17 4.800v4.400M15.500 6h2.300M2.500 21.500l8.500-8.500M5 15l3-3M9 19l3-3') + p('M13.500 13.500l1 1'),
+  heartofgold: heart(12, 13.500, 17, true) + p('M7.500 4.500l2 2.500L12 3.500l2.500 3.500 2-2.500-.8 4.500H8.300z'),
+  runningwild: flame(15, 12, 0.62) + p('M1.500 8h5M1 12h4.500M1.500 16h5'),
 };
 
 export function icon(id, size = 24) {

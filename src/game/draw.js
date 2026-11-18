@@ -25,6 +25,7 @@ export function drawGame(g, B, glyphs) {
   drawPickups(g, B, t, vis);
   drawStrings(g, B, t);
   for (const e of g.enemies) if (!e.dead && vis(e.x, e.y, e.r + 700)) drawEnemy(g, B, e, t, beat);
+  drawArsenal(g, B, t, vis);
   drawProjectiles(g, B, t, vis);
   drawBullets(g, B, t, vis);
   drawAllies(g, B, t);
@@ -120,14 +121,91 @@ function drawZones(g, B, t, vis) {
   }
 }
 
+// ------------------------------------------------------------------ the newer arsenal
+function envelope(B, x, y, s, rot, a, col = COL.rose) {
+  B.box(x, y, s * 1.4, s, rot, col, a, 1.6, 0.3, 0.9, 0.6, 1);
+  const c = Math.cos(rot), sn = Math.sin(rot);
+  // the flap: two lines from the top corners to the middle
+  const tx = -sn, ty = c;                         // "up" across the envelope
+  B.line(x - c * s * 1.3 - tx * s * 0.9, y - sn * s * 1.3 - ty * s * 0.9, x - tx * s * 0.1, y - ty * s * 0.1, 1.2, col, a, 0.4);
+  B.line(x + c * s * 1.3 - tx * s * 0.9, y + sn * s * 1.3 - ty * s * 0.9, x - tx * s * 0.1, y - ty * s * 0.1, 1.2, col, a, 0.4);
+  B.heart(x, y + s * 0.15, s * 0.45, Math.PI / 2, COL.hot, a, 0, 1, 1, 0);
+}
+
+function drawArsenal(g, B, t, vis) {
+  for (const l of g.tags) {                     // Laser Tag
+    const k = 1 - l.t / l.dur, fl = 0.8 + 0.2 * Math.sin(t * 60 + l.x1);
+    B.line(l.x1, l.y1, l.x2, l.y2, 7 * k * fl + 1, COL.cyan, 1.2 * k, 1);
+    B.line(l.x1, l.y1, l.x2, l.y2, 2 * k, COL.white, k, 0);
+  }
+  for (const l of g.lashes) {                   // Rose Whip: a thorny crescent sweeping across
+    const k = l.t / l.dur, sweep = -l.half + 2 * l.half * Math.min(1, k * 1.6);
+    const fade = 1 - Math.max(0, (k - 0.6) / 0.4);
+    const mid = l.ang + (sweep - l.half) / 2, half = (sweep + l.half) / 2;
+    B.arc(l.x, l.y, l.R * 0.92, mid, half, 7, COL.rose, 0.9 * fade, 1.2);
+    B.arc(l.x, l.y, l.R * 0.92, mid, half, 2, COL.white, fade, 0);
+    for (let i = 0; i <= 6; i++) {
+      const an = l.ang - l.half + (i / 6) * (sweep + l.half);
+      const px = l.x + Math.cos(an) * l.R * 0.92, py = l.y + Math.sin(an) * l.R * 0.92;
+      B.ngon(px, py, 7, 3, an + Math.PI / 2, COL.lime, fade, 1.4, 0.6, 0.6, 0);
+    }
+    const tip = l.ang + sweep;
+    B.heart(l.x + Math.cos(tip) * l.R, l.y + Math.sin(tip) * l.R, 11, tip, COL.hot, fade, 2, 0.8, 1.2, 0);
+  }
+  for (const r of g.rangs) {                    // The Ex
+    if (!vis(r.x, r.y, 40)) continue;
+    const col = r.saw > 0 ? COL.hot : COL.rose;
+    B.glow(r.x, r.y, r.r * 2.4, r.r * 2.4, 0, col, 0.35);
+    B.heart(r.x, r.y, r.r, r.rot, col, 1, 2.6, 0.45, 1.2, 0.8);
+    B.heart(r.x, r.y, r.r * 0.45, r.rot, COL.white, 1, 0, 1, 0.8, 0);
+    if (r.saw > 0) for (let i = 0; i < 6; i++) {
+      const an = r.rot * 1.4 + (i / 6) * TAU;
+      B.ngon(r.x + Math.cos(an) * r.r * 1.2, r.y + Math.sin(an) * r.r * 1.2, 6, 3, an, COL.white, 0.9, 1.2, 0.7, 0.8, 0);
+    }
+  }
+  const m = g.mirror;
+  if (m) {                                      // Mirror Ball
+    const fl = m.flash;
+    B.line(m.x, m.y - 30, m.x, m.y - 60, 1, COL.white, 0.3, 0);
+    B.glow(m.x, m.y, 64, 64, 0, COL.cyan, 0.1 + 0.2 * fl);
+    B.circle(m.x, m.y, 24, tint(COL.violet, COL.cyan, 0.2 + 0.4 * fl).slice(), 1, 2.2, 0.3, 0.8, 0.9);
+    for (let i = 0; i < 3; i++) {
+      const yy = m.y - 14 + i * 14, w = Math.sqrt(Math.max(0, 24 * 24 - (yy - m.y) ** 2));
+      B.line(m.x - w, yy, m.x + w, yy, 1, COL.white, 0.5, 0);
+    }
+    for (let i = 0; i < 4; i++) {
+      const ph = ((m.rot + i * 0.8) % 3.2) / 3.2 * 2 - 1;
+      B.line(m.x + ph * 22, m.y - 18, m.x + ph * 22, m.y + 18, 1, COL.white, 0.4 * (1 - Math.abs(ph)), 0);
+    }
+    for (let i = 0; i < 4; i++) {
+      const an = m.rot * 2 + i * 1.9;
+      B.star(m.x + Math.cos(an) * 16, m.y + Math.sin(an * 1.3) * 16, 2.5 + 1.5 * fl, 4, an, COL.white, 0.5 + 0.3 * fl, 0, 1, 0.6, 0);
+    }
+  }
+  for (const L of g.letters) {                  // Love Letter
+    if (!vis(L.x, L.y, 30)) continue;
+    B.glow(L.x, L.y, 50, 50, 0, COL.pink, 0.35);
+    envelope(B, L.x, L.y, 16, L.rot, 1);
+  }
+  const d = g.decoy;
+  if (d) {                                      // Heart of Gold decoy
+    const k = d.t / d.dur, fl = 0.5 + 0.5 * Math.sin(t * (6 + k * 30));
+    B.glow(d.x, d.y, 110, 110, 0, COL.gold, 0.3 + 0.3 * fl);
+    B.heart(d.x, d.y, 26 * (1 + 0.08 * fl), Math.PI / 2, tint(COL.gold, COL.white, k * fl).slice(), 1, 2.6, 0.5, 1.3, 0.8);
+    B.arc(d.x, d.y, 44, -Math.PI / 2, Math.PI * (1 - k), 2.4, COL.gold, 0.8, 1);
+    if (k > 0.7) B.ring(d.x, d.y, 280, COL.gold, 0.25 + 0.4 * fl, 1.5, 0.6);
+  }
+}
+
 // ------------------------------------------------------------------ stage hazards
 function drawHazards(g, B, t, vis) {
   const hz = g.hz;
   if (!hz) return;
   if (hz.prisms) for (const pr of hz.prisms) {
     if (!vis(pr.x, pr.y, 60)) continue;
-    const c = tint(COL.ice, COL.white, pr.hit).slice();
-    B.glow(pr.x, pr.y, 90, 90, 0, COL.ice, 0.25 + 0.3 * pr.hit);
+    const c = tint(COL.ice, COL.white, Math.max(pr.hit, pr.charge)).slice();
+    B.glow(pr.x, pr.y, 90 + 60 * pr.charge, 90 + 60 * pr.charge, 0, COL.ice, 0.25 + 0.3 * pr.hit + 0.4 * pr.charge);
+    if (pr.charge > 0) for (let i = 0; i < 3; i++) B.arc(pr.x, pr.y, pr.r * (2.6 - 1.4 * pr.charge), pr.rot + (i / 3) * TAU, 0.35, 2, COL.white, pr.charge, 1);
     B.star(pr.x, pr.y, pr.r * 1.25, 4, pr.rot, c, 1, 2.4, 0.35, 1, 0.9, 0.55);
     B.star(pr.x, pr.y, pr.r * 0.6, 4, -pr.rot * 1.4, COL.pink, 0.9, 1.6, 0.3, 1, 0, 0.5);
   }
@@ -186,7 +264,7 @@ function drawLasers(g, B, t) {
       B.arc(l.x, l.y, l.len + 10, l.base, l.swing + 0.08, 1.2, COL.amber, 0.25, 0.5);
     }
     const x2 = l.x + Math.cos(l.ang) * l.len, y2 = l.y + Math.sin(l.ang) * l.len;
-    const lc = l.kind === 'comet' ? COL.ice : l.kind === 'arc' ? COL.cyan : l.ekg ? COL.hot : COL.red;
+    const lc = l.kind === 'comet' || l.kind === 'prism' ? COL.ice : l.kind === 'arc' ? COL.cyan : l.ekg ? COL.hot : COL.red;
     if (l.t < l.warn) {
       const k = l.t / l.warn;
       const fl = 0.5 + 0.5 * Math.sin(t * (14 + k * 40));
@@ -208,6 +286,11 @@ function drawLasers(g, B, t) {
         B.line(px, py, qx, qy, 2, COL.white, 1, 0);
         px = qx; py = qy;
       }
+    } else if (l.kind === 'prism') {            // a ray of refracted light
+      const fl = 0.85 + 0.15 * Math.sin(t * 50 + l.ang * 9);
+      B.line(l.x, l.y, x2, y2, l.w * 0.5 * fl, COL.ice, 1.2, 1);
+      B.line(l.x, l.y, x2, y2, l.w * 0.22, COL.pink, 0.9, 0.6);
+      B.line(l.x, l.y, x2, y2, l.w * 0.1, COL.white, 1.1, 0);
     } else if (l.ekg) {                          // Flatline wall
       const fl = 0.85 + 0.15 * Math.sin(t * 50);
       B.line(l.x, l.y, x2, y2, l.w * 0.5 * fl, COL.hot, 1.3, 1);
@@ -226,11 +309,16 @@ function drawLasers(g, B, t) {
 }
 
 function drawPickups(g, B, t, vis) {
+  const gold = g.stats.fus.goldrush;
   for (const k of g.pickups) {
     if (k.dead || !vis(k.x, k.y)) continue;
     if (k.kind === 'xp') {
       const s = 4.5 + Math.min(4, k.val);
-      B.box(k.x, k.y, s, s, t * 3 + k.x * 0.01, COL.teal, 1, 1.4, 0.7, 1, 0, 1);
+      if (gold && k.pull) {                      // Gold Rush: a golden stream
+        const sp = Math.hypot(k.vx, k.vy) || 1;
+        B.glow(k.x - k.vx / sp * 14, k.y - k.vy / sp * 14, 26, 6, Math.atan2(k.vy, k.vx), COL.gold, 0.8);
+        B.box(k.x, k.y, s + 1, s + 1, t * 6, COL.gold, 1, 1.4, 0.8, 1.2, 0, 1);
+      } else B.box(k.x, k.y, s, s, t * 3 + k.x * 0.01, COL.teal, 1, 1.4, 0.7, 1, 0, 1);
     } else if (k.kind === 'heart') {
       B.heart(k.x, k.y, 13 + Math.sin(t * 6) * 2, Math.PI / 2, COL.rose, 1, 2, 0.7, 1);
     } else {
@@ -510,6 +598,14 @@ function drawEnemy(g, B, e, t, beat) {
       B.star(x + Math.cos(an) * r * 1.55, y + Math.sin(an) * r * 1.55, 5, 4, an, ec, 1, 0, 1, 0, 0);
     }
   }
+  if (e.pins > 0 && e.pinA) {                    // Cupid's Quiver arrows
+    const shake = e.pinT < 0.25 ? Math.sin(t * 80) * 2 : 0;
+    for (const pa of e.pinA) {
+      const an = pa + (e.rot || 0), ox = Math.cos(an), oy = Math.sin(an);
+      B.line(x + ox * r * 0.6 + shake, y + oy * r * 0.6, x + ox * (r + 16) + shake, y + oy * (r + 16), 2, COL.rose, 0.9, 0.6);
+      B.heart(x + ox * (r + 17), y + oy * (r + 17), 4, an, COL.pink, 0.9, 0, 1, 0.6, 0);
+    }
+  }
   if (e.frozen > 0) B.ngon(x, y, r * 1.35, 6, e.seed * 6, COL.ice, 0.9, 1.8, 0.18, 1, 0);
   if (e.charm > 0) B.heart(x, y - r - 14 - 3 * Math.sin(t * 6), 7, Math.PI / 2, COL.rose, 1, 0, 1, 1, 0);
   else if (e.envy > 0) {                       // Jealousy: green broken heart with stack ticks
@@ -533,6 +629,9 @@ function drawProjectiles(g, B, t, vis) {
     if (p.kind === 'heart' && p.beat) {         // On the Beat
       B.glow(p.x - c * 24, p.y - s * 24, 40, 11, p.ang, COL.gold, 0.9 * a);
       B.heart(p.x, p.y, p.r + 3, p.ang, COL.gold, a, 2.4, 0.8, 1.3, 0);
+    } else if (p.kind === 'heart' && p.refr) {   // refracted through a prism
+      B.glow(p.x - c * 22, p.y - s * 22, 36, 9, p.ang, COL.ice, 0.9 * a);
+      B.heart(p.x, p.y, p.r + 3, p.ang, COL.ice, a, 2.2, 0.8, 1.3, 0);
     } else if (p.kind === 'heart') {
       B.glow(p.x - c * 20, p.y - s * 20, 30, 8, p.ang, COL.hot, 0.8 * a);
       B.heart(p.x, p.y, p.r + 2, p.ang, COL.pink, a, 2, 0.75, 1, 0);
@@ -541,6 +640,9 @@ function drawProjectiles(g, B, t, vis) {
       B.broken(p.x, p.y, p.r + 1, p.ang, COL.rose, a, 1.5, 0.8, 0, 0);
     } else if (p.kind === 'shard') {
       B.box(p.x, p.y, 11, 3.2, p.ang, COL.ice, a, 0, 1, 1, 0, 1);
+    } else if (p.kind === 'letter') {             // Fan Mail
+      B.glow(p.x - c * 14, p.y - s * 14, 24, 7, p.ang, COL.gold, 0.8 * a);
+      envelope(B, p.x, p.y, 9, p.ang, a, COL.gold);
     } else {
       B.glow(p.x - c * 12, p.y - s * 12, 18, 5, p.ang, COL.pink, 0.7 * a);
       B.heart(p.x, p.y, p.r + 1, p.ang, COL.white, a, 0, 1, 1, 0);
@@ -558,7 +660,12 @@ function drawProjectiles(g, B, t, vis) {
   }
   for (const b of g.flashBeams) {
     const a = b.t / b.max;
-    B.line(b.x1, b.y1, b.x2, b.y2, 8 * a + 1, COL.rose, a * 1.4, 1);
+    if (b.spot) {                                 // Mirror Ball spotlight: a widening cone
+      const ang = Math.atan2(b.y2 - b.y1, b.x2 - b.x1), len = Math.hypot(b.x2 - b.x1, b.y2 - b.y1);
+      B.glow((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2, len * 0.55, 26, ang, COL.gold, 0.55 * a);
+      B.circle(b.x2, b.y2, 34, COL.gold, a, 2, 0.25, 1, 0);
+    }
+    B.line(b.x1, b.y1, b.x2, b.y2, 8 * a + 1, b.col || COL.rose, a * 1.4, 1);
     B.line(b.x1, b.y1, b.x2, b.y2, 2.5 * a, COL.white, a * 1.3, 0);
   }
 }
@@ -650,7 +757,12 @@ function drawPlayer(g, B, t, beat) {
     const k = p.shieldT / (17 - 2.5 * st.shield);
     B.arc(p.x, p.y, R * 1.75, -Math.PI / 2 + Math.PI * k, Math.PI * clamp(k, 0.02, 1), 1.2, COL.cyan, 0.35, 0);
   }
-  if (p.dashT > 0) B.glow(p.x - p.dashDx * 46, p.y - p.dashDy * 46, 90, 22, Math.atan2(p.dashDy, p.dashDx), g.stats.fus.comet ? COL.gold : COL.pink, 1.2);
+  if (p.dashT > 0) B.glow(p.x - p.dashDx * 46, p.y - p.dashDy * 46, p.ram ? 160 : 90, p.ram ? 40 : 22, Math.atan2(p.dashDy, p.dashDx), p.ram ? COL.orange : g.stats.fus.comet ? COL.gold : COL.pink, 1.2);
+  if (st.fus.runningwild && p.heat > 0) {        // Running Wild heat
+    const hk = p.heat, fl = 0.5 + 0.5 * Math.sin(t * (p.hot ? 18 : 6));
+    B.arc(p.x, p.y, R * 2.1, -Math.PI / 2 + Math.PI * hk, Math.PI * hk, 2, p.hot ? COL.amber : COL.orange, 0.5 + 0.3 * hk, 0.8);
+    if (p.hot) { B.glow(p.x, p.y, R * 4, R * 4, 0, COL.orange, 0.35 + 0.25 * fl); B.ring(p.x, p.y, R * 2.1, COL.amber, 0.7 + 0.3 * fl, 2.2, 1.2); }
+  }
   B.glow(p.x - c * R * 0.9, p.y - s * R * 0.9, 16 + 8 * beat, 9, p.ang, COL.hot, 0.9 * a);
   const hurt = Math.max(0, p.hurtT);
   B.heart(p.x, p.y, R, p.ang, hurt > 0 ? tint(COL.pink, COL.white, hurt) : COL.pink, a, 2.8, 0.35 + 0.25 * beat, 1, 0.9);

@@ -14,6 +14,7 @@ import { updateSpells } from './spells.js';
 import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
 import { Waves } from './waves.js';
 import { updateHazards, clearHazards } from './hazards.js';
+import { updateArsenal, dropDecoy, goldStream, goldCollect } from './arsenal.js';
 
 const CRIT = { crit: true };
 const QUIET = { quiet: true };
@@ -49,6 +50,12 @@ export class Game {
     this.lasers = [];
     this.drones = [];
     this.butterflies = [];
+    this.rangs = [];        // The Ex boomerangs
+    this.lashes = [];       // Rose Whip swings (visual)
+    this.letters = [];      // Love Letters in flight
+    this.tags = [];         // Laser Tag lines
+    this.mirror = null;     // Mirror Ball
+    this.decoy = null;      // Heart of Gold decoy
     this.lastHit = null;    // Heartstrings ties new hits to this enemy
     this.beatN = 0;         // beat clock, shared with the ship's pulse and the music tempo
     this.onBeat = false;    // true on the frame a new beat starts
@@ -160,6 +167,7 @@ export class Game {
 
     updatePlayer(this, input, dt);
     updateSpells(this, input, dt);
+    updateArsenal(this, dt);
     this.waves.update(dt);
     updateEnemies(this, dt);
     updateProjectiles(this, dt);
@@ -421,11 +429,13 @@ export class Game {
 
   hurtPlayer(n, sx, sy) {
     const p = this.player;
+    if (p.decoy) return false;                 // something aimed at the Heart of Gold decoy
     if (p.dead || p.invuln > 0 || p.dashT > 0 || this.victoryT > 0) return false;
     const fx = this.fx;
     this.stat.hits++;
     if (p.shield) {
       p.shield = false;
+      if (this.stats.fus.heartofgold) dropDecoy(this);
       p.shieldT = 0;
       p.invuln = 0.7;
       fx.ring(p.x, p.y, COL.cyan, 30, 160, 0.4, 5);
@@ -693,7 +703,7 @@ export class Game {
   }
 
   updatePickups(dt) {
-    const p = this.player, mag = this.stats.magnet, vac = this.waves.vacuum;
+    const p = this.player, st = this.stats, mag = st.magnet, vac = this.waves.vacuum, gold = st.fus.goldrush;
     const hw = ARENA.hw - 12, hh = ARENA.hh - 12;
     for (const k of this.pickups) {
       if (k.dead) continue;
@@ -704,6 +714,7 @@ export class Game {
         const sp = Math.min(1500, 520 + k.t * 900);
         k.vx = damp(k.vx, (dx / d) * sp, 12, dt);
         k.vy = damp(k.vy, (dy / d) * sp, 12, dt);
+        if (gold && k.kind === 'xp' && (this.frame + (k.t * 60 | 0)) % 2 === 0) goldStream(this, k);
       } else {
         const f = Math.max(0, 1 - 3.2 * dt);
         k.vx *= f; k.vy *= f;
@@ -714,6 +725,7 @@ export class Game {
         k.dead = true;
         if (k.kind === 'xp') {
           this.addXp(k.val);
+          if (st.fus.goldrush) goldCollect(this, k.val);
           this.audio.play('xp');
           this.fx.mote(p.x, p.y, COL.teal, 0.5, 4, 0.3, 160);
         } else if (k.kind === 'heart') {

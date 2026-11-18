@@ -36,11 +36,13 @@ export function updatePlayer(g, input, dt) {
     let dx = input.mx, dy = input.my;
     if (!dx && !dy) { dx = Math.cos(p.ang); dy = Math.sin(p.ang); }
     p.dashDx = dx; p.dashDy = dy;
-    p.dashT = PLAYER.dashTime;
+    p.ram = !!(st.fus.runningwild && p.hot);   // Running Wild: a full heat bar turns the dash into a ram
+    if (p.ram) { p.heat = 0; p.hot = false; g.fx.shock(p.x, p.y, 0.8, 500, 0.4); g.audio.play('bossRoar'); }
+    p.dashT = p.ram ? 0.42 : PLAYER.dashTime;
     p.dashCharges--;
     p.dashHits = new Set();
     p.afterT = 0;
-    p.invuln = Math.max(p.invuln, PLAYER.dashTime + 0.14);
+    p.invuln = Math.max(p.invuln, p.dashT + 0.14);
     fx.burst(p.x, p.y, COL.rose, 14, 380, 0.4, 4);
     fx.ring(p.x, p.y, COL.pink, 16, 70, 0.25, 3);
     g.audio.play('dash');
@@ -48,8 +50,10 @@ export function updatePlayer(g, input, dt) {
 
   if (p.dashT > 0) {
     p.dashT -= dt;
-    p.vx = p.dashDx * PLAYER.dashSpeed;
-    p.vy = p.dashDy * PLAYER.dashSpeed;
+    const dsp = p.ram ? 1500 : PLAYER.dashSpeed;
+    p.vx = p.dashDx * dsp;
+    p.vy = p.dashDy * dsp;
+    if (p.ram) ramStep(g, p, dt);
     fx.spray(p.x, p.y, Math.atan2(-p.dashDy, -p.dashDx), 0.8, COL.pink, 3, 300, 0.35, 5);
     if (st.dash >= 1) {
       p.afterT -= dt;
@@ -79,6 +83,7 @@ export function updatePlayer(g, input, dt) {
       p.vx *= 0.3; p.vy *= 0.3;
       if (st.fus.comet) g.explode(p.x, p.y, 170, st.damage * 4, { col: COL.gold, knock: 380 });
       if (st.fus.skipping) firePulse(g, p.x, p.y);   // Skipping Heart
+      if (p.ram) { g.explode(p.x, p.y, 170, st.damage * 5, { col: COL.orange, knock: 420, burn: true }); g.fx.shake(10); p.ram = false; }
     }
   } else {
     const sp = st.speed * (1 - p.slow);
@@ -123,4 +128,27 @@ export function updatePlayer(g, input, dt) {
   }
 
   if (input.bomb) g.useBomb();
+}
+
+/** Running Wild: the ram flattens everything it touches and leaves fire behind. */
+function ramStep(g, p, dt) {
+  const st = g.stats;
+  for (const e of g.grid.query(p.x, p.y, 80, [])) {
+    if (!g.hittable(e) || p.dashHits.has(e.id)) continue;
+    const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1, rr = 80 + e.r;
+    if (d > rr) continue;
+    p.dashHits.add(e.id);
+    g.damageEnemy(e, st.damage * 8, { crit: true });
+    if (!e.dead && !e.boss && !e.def.heavy) { e.vx += (dx / d) * 900; e.vy += (dy / d) * 900; }
+  }
+  for (const b of g.bullets) {
+    const dx = b.x - p.x, dy = b.y - p.y;
+    if (!b.dead && dx * dx + dy * dy < 100 * 100) { b.dead = true; g.fx.mote(b.x, b.y, COL.orange, 1, 5, 0.3, 200); }
+  }
+  p.ramT = (p.ramT || 0) - dt;
+  if (p.ramT <= 0 && g.zones.length < 120) {
+    p.ramT = 0.045;
+    g.zones.push({ kind: 'fire', x: p.x, y: p.y, r: 42, t: 0, dur: 1.6, tick: 0 });
+  }
+  g.fx.spray(p.x, p.y, Math.atan2(-p.dashDy, -p.dashDx), 1, COL.orange, 6, 420, 0.4, 7);
 }

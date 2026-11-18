@@ -376,7 +376,12 @@ export function updateEnemies(g, dt) {
       e.chill = Math.max(0, e.chill - 0.12 * dt);
     }
     const def = e.def;
-    if (e.charm > 0) aiCharmed(g, e, edt); else def.ai(g, e, edt);
+    if (e.charm > 0) aiCharmed(g, e, edt);
+    else if (g.decoy && !e.boss && (e.x - g.decoy.x) ** 2 + (e.y - g.decoy.y) ** 2 < 1100 * 1100) {
+      g.player = g.decoy;                      // Heart of Gold: the decoy draws their attention
+      def.ai(g, e, edt);
+      g.player = p;
+    } else def.ai(g, e, edt);
     if (e.dead) continue;
     if (!def.noMove) { e.x += e.vx * edt; e.y += e.vy * edt; }
 

@@ -4,6 +4,7 @@
 import { ARENA, COL } from '../config.js';
 import { TAU, turnToward, segDist2 } from '../core/math.js';
 import { igniteEnemy, chillEnemy, charmEnemy, envyEnemy, tieEnemy, tiedTo } from './status.js';
+import { tagLine, pinArrow, letterBurst } from './arsenal.js';
 
 const CRIT = { crit: true };
 const SURE_CRIT = { crit: true, sure: true };   // beat volleys
@@ -19,7 +20,7 @@ export function spawnProj(g, x, y, ang, o) {
     life: o.life ?? st.projLife, dmg: o.dmg, r: o.r ?? 10, kind: o.kind ?? 'heart',
     pierce: o.pierce ?? st.pierce, bounce: o.bounce ?? st.bounce, homing: o.homing ?? st.homing,
     canSplit: o.canSplit ?? st.split > 0, gen: o.gen ?? 0, coef: o.coef ?? 1, chill: o.chill || 0, beat: !!o.beat,
-    hits: o.hits || [], tgt: null, tgtT: 0, t: 0, dead: false,
+    hits: o.hits || [], tgt: null, tgtT: 0, t: 0, dead: false, lx: x, ly: y,
   };
   g.projs.push(p);
   return p;
@@ -70,7 +71,8 @@ function spawnHalves(g, p, e) {
   for (const s of [-1, 1]) {
     spawnProj(g, p.x, p.y, p.ang + s * 0.62, {
       dmg: p.dmg * st.splitMul, kind: 'half', gen: p.gen + 1, canSplit: false,
-      bounce: st.fus.kaleidoscope ? 1 : 0, pierce: 0, life: 0.5, r: 7, coef: 0.5, hits: [e.id],
+      bounce: st.fus.kaleidoscope ? 1 : 0, pierce: 0, life: st.fus.quiver ? 0.7 : 0.5, r: 7, coef: 0.5, hits: [e.id],
+      homing: st.fus.quiver ? 8 : st.homing,
     });
   }
 }
@@ -131,11 +133,14 @@ function onHit(g, p, e) {
   applyHitEffects(g, e, p.dmg, p.coef, p);
   g.fx.spray(p.x, p.y, p.ang + Math.PI, 1.4, p.kind === 'shard' ? COL.ice : COL.pink, 3, 260, 0.25, 3);
   g.audio.play('hit');
+  if (p.kind === 'letter') { letterBurst(g, p.x, p.y, 6, st.damage * 0.6); p.dead = true; return; }
+  if (p.kind === 'half' && st.fus.quiver && !e.dead) { pinArrow(g, e, p); p.dead = true; return; }   // Cupid's Quiver
 
   if (p.canSplit && p.gen < 1) { p.canSplit = false; spawnHalves(g, p, e); }
   if (p.bounce > 0) {
     const t = g.findTarget(p.x, p.y, 460, p.hits);
     if (t) {
+      if (st.fus.lasertag) tagLine(g, p);
       p.bounce--;
       p.ang = Math.atan2(t.y - p.y, t.x - p.x);
       p.vx = Math.cos(p.ang) * p.spd; p.vy = Math.sin(p.ang) * p.spd;
@@ -145,7 +150,7 @@ function onHit(g, p, e) {
       return;
     }
   }
-  if (p.pierce > 0) { p.pierce--; return; }
+  if (p.pierce > 0) { p.pierce--; if (st.fus.lasertag) tagLine(g, p); return; }
   p.dead = true;
 }
 

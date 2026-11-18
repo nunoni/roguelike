@@ -182,7 +182,44 @@ for (const f of FUSIONS) {
   check(r.peak.projs <= 1400 && r.peak.zones <= 400, `${f.id}: counts bounded`);
 }
 
-// ---------------------------------------------------------------- 3c. every sector's hazard
+// ---------------------------------------------------------------- 3c. the newer arsenal does its thing
+console.log('arsenal mechanics');
+{
+  const cases = [
+    { name: 'The Ex boomerangs', skills: ['ex'], fus: [], probe: (g, s) => { if (g.rangs.some((r) => !r.out)) s.ok = 1; } },
+    { name: 'Rose Whip lashes', skills: ['whip'], fus: [], probe: (g, s) => { if (g.lashes.length) s.ok = 1; } },
+    { name: 'Mirror Ball beams', skills: ['mirror'], fus: [], probe: (g, s) => { if (g.flashBeams.some((b) => b.col && !b.spot)) s.ok = 1; } },
+    { name: 'Love Letter flies', skills: ['letter'], fus: [], probe: (g, s) => { if (g.letters.length) s.ok = 1; } },
+    { name: 'Whiplash buzzsaw', skills: ['ex', 'whip'], fus: ['whiplash'], probe: (g, s) => { if (g.rangs.some((r) => r.saw > 0)) s.ok = 1; } },
+    { name: 'Fan Mail letters', skills: ['mirror', 'letter'], fus: ['fanmail'], probe: (g, s) => { if (g.projs.some((q) => q.kind === 'letter')) s.ok = 1; } },
+    { name: "Cupid's Quiver pins", skills: ['homing', 'split'], fus: ['quiver'], probe: (g, s) => { if (g.enemies.some((e) => e.pins > 1)) s.ok = 1; } },
+    { name: 'Laser Tag lines', skills: ['pierce', 'bounce'], fus: ['lasertag'], probe: (g, s) => { if (g.tags.length) s.ok = 1; } },
+    { name: 'Gold Rush stream', skills: ['magnet', 'steal'], fus: ['goldrush'], probe: (g, s) => { if (g.pickups.some((k) => k.hit && k.hit.length)) s.ok = 1; } },
+    { name: 'Heart of Gold decoy', skills: ['shield', 'hp'], fus: ['heartofgold'], probe: (g, s) => { if (g.decoy) s.ok = 1; else if (g.player.shield && g.player.invuln <= 0) g.hurtPlayer(1, g.player.x, g.player.y); } },
+    { name: 'Running Wild ram', skills: ['dmg', 'speed'], fus: ['runningwild'], probe: (g, s) => { if (g.player.ram) s.ok = 1; } },
+  ];
+  for (const c of cases) {
+    const g = newGame({ seed: 50, god: true });
+    for (const id of c.skills) g.levels[id] = SKILLS.find((k) => k.id === id).max;
+    for (const id of c.fus) g.fusions[id] = true;
+    g.setStats();
+    g.waves.n = 7; g.waves.timer = 0.1;
+    const seen = { ok: 0 };
+    let err = null;
+    for (let f = 0; f < 60 * 50 && !seen.ok && !err; f++) {
+      if (g.state === 'levelup') { g.choose(botChoose(g)); continue; }
+      const inp = botInput(g);
+      if (g.player.hot) inp.dash = true;               // spend Running Wild heat when it is ready
+      g.update(1 / 60, inp);
+      c.probe(g, seen);
+      if (f % 30 === 0) err = sane(g);
+    }
+    check(!err, `${c.name}: no NaN` + (err ? ': ' + err : ''));
+    check(seen.ok, `${c.name}: happens`);
+  }
+}
+
+// ---------------------------------------------------------------- 3d. every sector's hazard
 console.log('sector hazards');
 for (const sec of SECTORS) {
   const ti = ROUTE_TIERS.findIndex((t) => t.includes(sec.id));

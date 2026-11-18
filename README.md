@@ -48,7 +48,7 @@ From wave 6, elite variants (Swift, Armored, Volatile, Regenerating) can appear.
 | Tier | Sector options | Hazard |
 |---|---|---|
 | 1 | Azure Drift | **Comets** streak across the arena and hit enemies too |
-| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** pop when you get close (shoot them for XP) / **Prisms** split your hearts and enemy bullets in three |
+| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** pop when you get close (shoot them for XP) / **Prisms** pull in your hearts and split them into three charged ones (enemy bullets split too), and flare rays of light |
 | 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and burn enemies / **Tesla pylons** arc lightning that shocks everything between them |
 | 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in / **Currents** push everything and keep turning |
 | 5 | Black Corona | **Dimming**: the light fails and enemies hide in the dark |
@@ -67,10 +67,12 @@ Hazards pause during boss fights.
 
 Touching a boss costs two hearts.
 
-**Skills.** There are 28 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
+**Skills.** There are 32 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
 - Racing Pulse also makes spells cast faster.
 - Cherubs copy your extra hearts, fire rate and heart effects.
 - Burn stacks with every hit.
+
+The newest four are their own kinds of attack: **The Ex** (a boomerang heart that always comes back), **Rose Whip** (a thorny lash that cuts bullets out of the air), **Mirror Ball** (a disco ball that scatters hearts fired through it into light beams) and **Love Letter** (an envelope that drifts into a crowd and bursts into a spiral of hearts).
 
 Each skill has a **signature partner**:
 
@@ -90,10 +92,19 @@ Each skill has a **signature partner**:
 | Lighthearted | Shooting Stars | **Stardust Waltz** |
 | On the Beat | Butterflies | **Ballroom** |
 | Jealousy | Heartstrings | **Soulmates** |
+| The Ex | Rose Whip | **Whiplash** (the caught boomerang becomes a buzzsaw around you) |
+| Mirror Ball | Love Letter | **Fan Mail** (on the beat, homing letters to everyone in the light) |
 
-There are also 14 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire and Heartache. Each skill can only be spent on **one** fusion per run, so when two are ready at once you have to choose.
+There are also 19 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire, Heartache, and five that add brand-new mechanics:
+- **Cupid's Quiver** (Cupid's Aim + Heartbreak): halves stick into enemies like arrows, then all rip out at once.
+- **Laser Tag** (Piercing Gaze + Rebound): every pierce and ricochet draws a burning laser between hit points.
+- **Gold Rush** (Attraction + Stolen Heart): XP flying to you cuts through enemies; every 150 XP drops a heart.
+- **Heart of Gold** (Guarded Heart + Big Heart): a broken barrier leaves a golden decoy that enemies chase and shoot, then it explodes.
+- **Running Wild** (Passion + Lighthearted): moving builds heat; a full bar turns your dash into a flaming ram.
 
-Every card shows its fusion partners. Fusions you discover are saved to the Fusion Codex on the title screen. Your best score, settings and codex are kept in `localStorage`.
+ Each skill can only be spent on **one** fusion per run, so when two are ready at once you have to choose.
+
+Every skill can go into at least two fusions. Every card shows its fusion partners. Fusions you discover are saved to the Fusion Codex on the title screen. Your best score, settings and codex are kept in `localStorage`.
 
 ## Project layout
 
@@ -104,7 +115,7 @@ src/config.js             tunables: arena, player stats, XP curve, sector palett
 src/core/                 math, seeded RNG, spatial grid, input, save
 src/gfx/                  WebGL2 renderer: instanced SDF shapes, bloom, distortion, particles
 src/audio/                procedural sound effects and generative synthwave music
-src/game/                 the simulation: game, player, weapons, enemies, bosses, hazards, waves, upgrades
+src/game/                 the simulation: game, player, weapons, arsenal, enemies, bosses, hazards, waves, upgrades
 src/ui/                   HUD, menus, SVG icons
 tools/                    dev server, headless test suite, shape gallery
 ```
@@ -123,6 +134,7 @@ The suite checks:
 - a full 25-wave run into endless mode, with every enemy and the planned bosses spawning and the warp-gate route being followed;
 - every sector's hazard firing without stalling its waves;
 - a build with every skill and fusion active;
+- each of the newer skills and fusions actually triggering its mechanic;
 - each of the 9 bosses being beatable;
 - no NaNs and bounded entity counts throughout.
 

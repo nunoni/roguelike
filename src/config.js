@@ -34,7 +34,7 @@ export const SECTORS = [
     c1: [0.05, 0.12, 0.42], c2: [0.32, 0.08, 0.5], c3: [0.1, 0.6, 0.8], grid: [0.2, 0.5, 1.0] },
   { id: 'verdant', name: 'VERDANT RIFT', hazard: 'SPORE PODS', blurb: 'Pods pop into spores up close; shoot them for XP',
     c1: [0.03, 0.3, 0.26], c2: [0.1, 0.12, 0.45], c3: [0.4, 0.9, 0.4], grid: [0.15, 0.9, 0.6] },
-  { id: 'crystal', name: 'CRYSTAL CASCADE', hazard: 'PRISMS', blurb: 'Prisms split your hearts and enemy bullets in three',
+  { id: 'crystal', name: 'CRYSTAL CASCADE', hazard: 'PRISMS', blurb: 'Prisms split hearts and bullets in three, and flare rays of light',
     c1: [0.12, 0.22, 0.4], c2: [0.32, 0.08, 0.3], c3: [0.6, 0.9, 1.0], grid: [0.9, 0.5, 0.9] },
   { id: 'ember', name: 'EMBER REACH', hazard: 'SOLAR FLARES', blurb: 'Flares scorch the ground; lure enemies into the fire',
     c1: [0.42, 0.1, 0.05], c2: [0.4, 0.05, 0.3], c3: [1.0, 0.6, 0.2], grid: [1.0, 0.45, 0.2] },

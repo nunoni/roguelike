@@ -33,10 +33,15 @@ export const SKILLS = [
   { id: 'flutter', name: 'Butterflies', cat: 'spell', max: 4, desc: 'Butterflies flutter around you and dart at enemies.', lv: (l) => `${FLUTTER_N[l]} butterflies` },
   { id: 'envy', name: 'Jealousy', cat: 'tech', max: 4, desc: 'Hits stack Jealousy: the enemy takes more damage from everything.', lv: (l) => `+${(1.5 * l).toFixed(1)}% damage taken per stack, up to 5` },
   { id: 'strings', name: 'Heartstrings', cat: 'tech', max: 4, desc: 'Hits tie enemies together; damage to one also hurts the other.', lv: (l) => `${25 + 10 * (l - 1)}% of damage shared` },
+  { id: 'ex', name: 'The Ex', cat: 'spell', max: 4, desc: 'Throws a big boomerang heart that always comes back, piercing on the way out and on the way home.', lv: (l) => `${l >= 3 ? 2 : 1} boomerang${l >= 3 ? 's' : ''} every ${(2.4 - 0.2 * l).toFixed(1)}s, ${Math.round((1.6 + 0.5 * l) * 100)}% damage` },
+  { id: 'whip', name: 'Rose Whip', cat: 'spell', max: 4, desc: 'A thorny whip lashes at nearby enemies, cutting bullets out of the air and pulling enemies in.', lv: (l) => `Every ${(2 - 0.2 * l).toFixed(1)}s, reach ${200 + 30 * l}, ${Math.round((2 + 0.6 * l) * 100)}% damage` },
+  { id: 'mirror', name: 'Mirror Ball', cat: 'spell', max: 4, desc: 'A disco ball floats ahead of you. Hearts fired through it scatter into light beams, and on the beat it spotlights enemies.', lv: (l) => `${MIRROR_N[l]} beam${MIRROR_N[l] > 1 ? 's' : ''} per heart, ${l} spotlight${l > 1 ? 's' : ''} every other beat` },
+  { id: 'letter', name: 'Love Letter', cat: 'spell', max: 4, desc: 'A sealed letter drifts into the thickest crowd and bursts open into a spiral of hearts.', lv: (l) => `Every ${(4.6 - 0.5 * l).toFixed(1)}s, ${10 + 4 * l} hearts` },
 ];
 
 const FLUTTER_N = [0, 2, 3, 4, 6];
 const STAR_N = [0, 1, 2, 2, 3];
+const MIRROR_N = [0, 1, 2, 2, 3];
 
 // type 'pair': each skill's signature fusion. type 'cross': mixes skills from
 // different pairs. A skill can only ever be spent on one fusion per run.
@@ -55,6 +60,8 @@ export const FUSIONS = [
   { id: 'stardust', name: 'Stardust Waltz', from: ['speed', 'stars'], desc: 'Moving leaves a burning stardust trail and doubles the starfall.' },
   { id: 'ballroom', name: 'Ballroom', from: ['beat', 'flutter'], desc: 'Twice the butterflies. On every beat they all swoop on one enemy for triple damage.' },
   { id: 'soulmates', name: 'Soulmates', from: ['envy', 'strings'], desc: 'Tied enemies share burns, chill and Jealousy. When one dies, its partner takes a heartbreak burst.' },
+  { id: 'whiplash', name: 'Whiplash', from: ['ex', 'whip'], desc: 'Catching your boomerang whips it into a buzzsaw that spins around you, shredding enemies and bullets.' },
+  { id: 'fanmail', name: 'Fan Mail', from: ['mirror', 'letter'], desc: 'On every beat the Mirror Ball mails a homing letter to each enemy in its light. Letters burst into hearts.' },
 
   { id: 'thermal', type: 'cross', name: 'Thermal Shock', from: ['burn', 'chill'], desc: 'Freezing a burning enemy, or igniting a frozen one, sets off a steam blast fuelled by its burn stacks.' },
   { id: 'wildfire', type: 'cross', name: 'Wildfire', from: ['burn', 'chain'], desc: 'Lightning arcs carry the flames: each arc adds 2 burn stacks.' },
@@ -70,6 +77,11 @@ export const FUSIONS = [
   { id: 'kiss', type: 'cross', name: 'Butterfly Kiss', from: ['flutter', 'charm'], desc: 'Butterfly strikes have a 15% chance to charm.' },
   { id: 'livewire', type: 'cross', name: 'Live Wire', from: ['strings', 'chain'], desc: 'Heartstrings crackle, zapping both tied enemies twice a second.' },
   { id: 'heartache', type: 'cross', name: 'Heartache', from: ['envy', 'crit'], desc: 'Crits add 3 Jealousy stacks, and jealous enemies take +25% crit damage.' },
+  { id: 'quiver', type: 'cross', name: "Cupid's Quiver", from: ['homing', 'split'], desc: 'Broken halves seek and stick into enemies like arrows. A second later they all rip out at once; the more arrows, the bigger the burst.' },
+  { id: 'lasertag', type: 'cross', name: 'Laser Tag', from: ['pierce', 'bounce'], desc: 'Every pierce and ricochet draws a burning laser between the heart\'s last two hit points.' },
+  { id: 'goldrush', type: 'cross', name: 'Gold Rush', from: ['magnet', 'steal'], desc: 'XP you pull in becomes a golden stream that hurts every enemy it flies through. Every 150 XP drops a healing heart.' },
+  { id: 'heartofgold', type: 'cross', name: 'Heart of Gold', from: ['shield', 'hp'], desc: 'When your barrier breaks it leaves a golden decoy. Enemies chase and shoot it instead of you, then it explodes.' },
+  { id: 'runningwild', type: 'cross', name: 'Running Wild', from: ['dmg', 'speed'], desc: 'Moving builds heat. When it is full your next dash becomes a flaming ram that bulldozes enemies and bullets.' },
 ];
 for (const f of FUSIONS) f.type ||= 'pair';
 
@@ -149,6 +161,11 @@ export function computeStats(L, F, bonusHp = 0) {
     flutter: FLUTTER_N[l('flutter')] * (F.ballroom ? 2 : 1),
     envy: 0.015 * l('envy'),
     strings: l('strings') ? 0.25 + 0.1 * (l('strings') - 1) : 0,
+    ex: l('ex'),
+    whip: l('whip'),
+    mirror: l('mirror'),
+    mirrorN: MIRROR_N[l('mirror')],
+    letter: l('letter'),
     dashCharges: 1 + (l('dash') >= 1 ? 1 : 0) + (l('dash') >= 4 ? 1 : 0),
     dashCd: PLAYER.dashCd * (1 - 0.07 * l('dash')) * (1 - 0.04 * l('speed')),
     fus: { ...F },
@@ -181,8 +198,8 @@ export function rollChoices(game, n = 3) {
     const pick = rng.weighted(pool, (s) => {
       let w = 1;
       const lv = L[s.id] || 0;
-      if (lv > 0) w *= 3.2;
-      else if (owned >= 9) w *= 0.35;          // late on, new skills get rarer
+      if (lv > 0) w *= 4;
+      else if (owned >= 7) w *= 0.35;          // late on, new skills get rarer
       // lean toward skills that complete a fusion with something you own
       let best = 1;
       for (const f of RECIPES_OF[s.id] || []) {
@@ -210,7 +227,7 @@ export function describeChoice(game, c) {
     return { title: f.name, cat: 'fusion', tag: f.type === 'pair' ? 'FUSION' : 'CROSS FUSION', desc: f.desc, detail: `${SKILL_BY_ID[f.from[0]].name} + ${SKILL_BY_ID[f.from[1]].name}`, level: 0, max: 0, icon: f.id };
   }
   if (c.kind === 'heal') return { title: 'Second Wind', cat: 'stat', tag: 'BONUS', desc: 'Restore 2 health.', detail: '', level: 0, max: 0, icon: 'hp' };
-  if (c.kind === 'score') return { title: 'Love Letter', cat: 'stat', tag: 'BONUS', desc: 'Gain a burst of score and a full Love Bomb.', detail: '', level: 0, max: 0, icon: 'magnet' };
+  if (c.kind === 'score') return { title: 'Sweet Nothings', cat: 'stat', tag: 'BONUS', desc: 'Gain a burst of score and a full Love Bomb.', detail: '', level: 0, max: 0, icon: 'magnet' };
   const s = SKILL_BY_ID[c.id];
   const L = game.levels, F = game.fusions;
   const lv = L[s.id] || 0;

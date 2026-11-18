@@ -45,7 +45,7 @@ export function resetHazards(g) {
     for (let i = 0; i < n; i++) {
       let s = farSpot(g, 320, 900, 220);
       for (let tries = 0; tries < 8 && hz.prisms.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 420); tries++) s = farSpot(g, 320, 1100, 220);
-      hz.prisms.push({ x: s.x, y: s.y, r: 34, rot: g.rng.angle(), hit: 0 });
+      hz.prisms.push({ x: s.x, y: s.y, r: 34, rot: g.rng.angle(), hit: 0, flareT: 3 + i * 1.3, charge: 0 });
     }
   } else if (id === 'storm') {
     hz.pylons = [];
@@ -130,29 +130,52 @@ function aiPod(g, e, dt) {
 
 // ------------------------------------------------------------------ Crystal Cascade: prisms
 function prisms(g, hz, dt) {
-  const p = g.player;
+  const p = g.player, k = stage(g);
   for (const pr of hz.prisms) {
     pr.rot += dt * 0.5;
     pr.hit = Math.max(0, pr.hit - dt * 3);
+    // the prism gathers light, then flares it out as three rays
+    pr.flareT -= dt;
+    pr.charge = clamp(1 - pr.flareT, 0, 1);
+    if (pr.flareT <= 0) {
+      pr.flareT = 5.6 - 0.4 * k + g.rng.range(-0.5, 0.5);
+      for (let i = 0; i < 3; i++) {
+        const l = g.addLaser({ x: pr.x, y: pr.y, ang: pr.rot + (i / 3) * TAU, len: 660, w: 24, warn: 0.85, dur: 0.35, hurts: 5, kind: 'prism', col: COL.ice });
+        l.hazard = true;
+      }
+      g.audio.play('charge');
+    }
     // the crystal is solid: slide the player around it
     const dx = p.x - pr.x, dy = p.y - pr.y, d = Math.hypot(dx, dy) || 1, rr = pr.r + p.r;
     if (d < rr) { p.x = pr.x + (dx / d) * rr; p.y = pr.y + (dy / d) * rr; }
   }
-  // your hearts refract into three
+  // your hearts bend toward a nearby prism and come out as three charged hearts
   const n = g.projs.length;
   for (let i = 0; i < n; i++) {
     const q = g.projs[i];
     if (q.dead || q.refr) continue;
     for (const pr of hz.prisms) {
-      const dx = q.x - pr.x, dy = q.y - pr.y, rr = pr.r + q.r;
-      if (dx * dx + dy * dy > rr * rr) continue;
+      const dx = q.x - pr.x, dy = q.y - pr.y, d2 = dx * dx + dy * dy, rr = pr.r + q.r;
+      if (d2 < 120 * 120 && d2 > rr * rr) {        // light pull
+        let da = (Math.atan2(-dy, -dx) - q.ang) % TAU;
+        if (da > Math.PI) da -= TAU; else if (da < -Math.PI) da += TAU;
+        if (Math.abs(da) < 1.2) {
+          q.ang += clamp(da, -3.5 * dt, 3.5 * dt);
+          q.vx = Math.cos(q.ang) * q.spd; q.vy = Math.sin(q.ang) * q.spd;
+        }
+        continue;
+      }
+      if (d2 > rr * rr) continue;
       q.refr = true;
+      q.dmg *= 1.2;
+      q.life = Math.max(q.life, 0.5);
       for (const s of [-0.38, 0.38]) {
-        const c = spawnProj(g, q.x, q.y, q.ang + s, { dmg: q.dmg * 0.7, kind: q.kind, r: q.r, spd: q.spd, life: Math.max(0.35, q.life), pierce: q.pierce, bounce: q.bounce, homing: q.homing, canSplit: false, gen: q.gen, coef: q.coef * 0.7, chill: q.chill, beat: q.beat, hits: [...q.hits] });
+        const c = spawnProj(g, q.x, q.y, q.ang + s, { dmg: q.dmg * 0.8, kind: q.kind, r: q.r, spd: q.spd, life: Math.max(0.5, q.life), pierce: q.pierce, bounce: q.bounce, homing: q.homing, canSplit: false, gen: q.gen, coef: q.coef * 0.7, chill: q.chill, beat: q.beat, hits: [...q.hits] });
         if (c) c.refr = true;
       }
+      if (pr.hit < 0.4) { g.fx.ring(pr.x, pr.y, COL.ice, pr.r, pr.r * 2.4, 0.25, 3); g.audio.play('pick'); }
       pr.hit = 1;
-      g.fx.mote(pr.x, pr.y, COL.ice, 1, 5, 0.3, 160);
+      g.fx.spray(pr.x, pr.y, q.ang, 0.5, COL.ice, 4, 420, 0.25, 3);
       break;
     }
   }
