@@ -245,7 +245,7 @@ for (const sec of SECTORS) {
   g.route = [...ROUTE_TIERS.slice(0, ti).map((t) => t[0]), sec.id];
   const n0 = ti * WAVES_PER_SECTOR + 2;
   g.waves.n = n0 - 1; g.waves.timer = 0.1;
-  const seen = { comet: 0, pod: 0, refr: 0, flare: 0, arc: 0, rift: 0, flow: 0, dark: 0 };
+  const seen = { comet: 0, pod: 0, refr: 0, flare: 0, arc: 0, rift: 0, flow: 0, dark: 0, pool: 0, volley: 0, wave: 0, creep: 0 };
   const r = run(g, {
     until: (g) => g.wave > n0 + 1, maxSeconds: 400,
     onFrame: (g) => {
@@ -256,6 +256,10 @@ for (const sec of SECTORS) {
       for (const z of g.zones) if (z.flare) seen.flare++;
       if (g.hz.rifts) seen.rift++;
       if (g.hz.fx) seen.flow++;
+      if (g.hz.pools) for (const w of g.hz.pools) if (w.t + 1 / 60 >= w.dur) seen.pool++;
+      if (g.lasers.filter((l) => l.kind === 'comet').length >= 2) seen.volley++;
+      if (g.hz.waves && g.hz.waves.length) seen.wave++;
+      for (const e of g.enemies) if (e.type === 'pod' && e.crept > 40) seen.creep++;
       if (g.dark && g.dark.hz && g.dark.k > 0.5) seen.dark++;
     },
   });
@@ -263,6 +267,10 @@ for (const sec of SECTORS) {
   check(g.sector.id === sec.id || g.wave > n0, `${sec.id}: plays in its sector`);
   check(!r.err, `${sec.id}: no NaN` + (r.err ? ': ' + r.err : ''));
   check(seen[key] > 0, `${sec.id}: ${sec.hazard.toLowerCase()} happen (${key} ${seen[key]})`);
+  if (sec.id === 'tidal') check(seen.pool > 0, `tidal: whirlpools burst (${seen.pool})`);
+  if (sec.id === 'ember') check(seen.wave > 0, `ember: fire waves roll out (${seen.wave})`);
+  if (sec.id === 'verdant') check(seen.creep > 0, `verdant: pods creep (${seen.creep})`);
+  if (sec.id === 'azure') check(seen.volley > 0, `azure: comet volleys (${seen.volley})`);
   check(g.wave > n0 + 1, `${sec.id}: waves still clear (${Math.round(r.seconds)}s)`);
   check(r.peak.bullets <= 900 && r.peak.zones <= 400 && r.peak.projs <= 1400, `${sec.id}: counts bounded (${JSON.stringify(r.peak)})`);
 }

@@ -6,6 +6,9 @@ import { TAU, damp, segDist2 } from '../core/math.js';
 import { spawnProj, applyHitEffects } from './weapons.js';
 import { igniteEnemy, charmEnemy } from './status.js';
 
+/** Seconds a Guardian Heart (or Halo cherub) needs to mend after it blocks a bullet. */
+const BLOCK_CD = 1.3;
+
 const QUIET = { quiet: true };
 const CRIT_HIT = { crit: true };
 
@@ -41,8 +44,9 @@ export function updateSpells(g, input, dt) {
     const or = st.fus.pulsar ? 17 : 14;
     for (let i = 0; i < nOrb; i++) {
       const a = spin + (i / nOrb) * TAU;
-      const o = orb[i] || (orb[i] = { x: 0, y: 0, a: 0 });
+      const o = orb[i] || (orb[i] = { x: 0, y: 0, a: 0, cd: 0 });
       o.a = a; o.r = or;
+      o.cd = Math.max(0, o.cd - dt);
       o.x = p.x + Math.cos(a) * R; o.y = p.y + Math.sin(a) * R;
       if (tick) {
         for (const e of g.grid.query(o.x, o.y, or, [])) {
@@ -53,9 +57,14 @@ export function updateSpells(g, input, dt) {
           fx.spray(o.x, o.y, Math.atan2(dy, dx), 1.5, COL.rose, 3, 240, 0.25, 3);
         }
       }
-      for (const b of g.bullets) {
+      // each heart can take one bullet, then needs a moment to mend
+      if (o.cd <= 0) for (const b of g.bullets) {
         const dx = b.x - o.x, dy = b.y - o.y, rr = or + b.r + 3;
-        if (!b.dead && dx * dx + dy * dy < rr * rr) { b.dead = true; fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 140); }
+        if (!b.dead && dx * dx + dy * dy < rr * rr) {
+          b.dead = true; o.cd = BLOCK_CD;
+          fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 140);
+          break;
+        }
       }
     }
   }
@@ -91,10 +100,15 @@ export function updateSpells(g, input, dt) {
     const rad = d.ghost ? 150 : 64;
     d.x = damp(d.x, p.x + Math.cos(a) * rad, 6, dt);
     d.y = damp(d.y, p.y + Math.sin(a) * rad, 6, dt);
-    if (halo) {                                  // Halo: cherubs guard you too
-      for (const b of g.bullets) {
+    if (halo) {                                  // Halo: cherubs guard you too, one bullet at a time
+      d.guardCd = Math.max(0, (d.guardCd || 0) - dt);
+      if (d.guardCd <= 0) for (const b of g.bullets) {
         const dx = b.x - d.x, dy = b.y - d.y, rr = 20 + b.r;
-        if (!b.dead && dx * dx + dy * dy < rr * rr) { b.dead = true; fx.mote(b.x, b.y, COL.gold, 1, 4, 0.3, 140); }
+        if (!b.dead && dx * dx + dy * dy < rr * rr) {
+          b.dead = true; d.guardCd = BLOCK_CD;
+          fx.mote(b.x, b.y, COL.gold, 1, 4, 0.3, 140);
+          break;
+        }
       }
       if (haloTick) {
         for (const e of g.grid.query(d.x, d.y, 24, [])) {

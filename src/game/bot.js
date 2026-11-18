@@ -103,6 +103,14 @@ export function botInput(g) {
     if (d < rf.R) { fx += (dx / d) * 3 * (1 - d / rf.R) + (dx / d) * (d < 140 ? 3 : 0); fy += (dy / d) * 3 * (1 - d / rf.R) + (dy / d) * (d < 140 ? 3 : 0); }
   }
   if (hz && hz.fx) { fx -= hz.fx / 160; fy -= hz.fy / 160; }   // lean into the current
+  if (hz && hz.waves) for (const w of hz.waves) {                // outrun a fire wave rolling toward you
+    const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy) || 1;
+    if (d > w.r && d - w.r < 90) { fx += (dx / d) * 2.5; fy += (dy / d) * 2.5; }
+  }
+  if (hz && hz.pools) for (const w of hz.pools) {                // swim out of a whirlpool before it bursts
+    const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy) || 1;
+    if (d < w.r * 1.3) { const k = 1.5 + 2.5 * (w.t / w.dur); fx += (dx / d) * k; fy += (dy / d) * k; }
+  }
 
   const l = Math.hypot(fx, fy);
   const mx = l > 0.05 ? fx / l : 0, my = l > 0.05 ? fy / l : 0;

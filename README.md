@@ -54,11 +54,11 @@ Later waves also get smarter rather than just tougher: from wave 12 Drifters sta
 
 | Tier | Sector options | Hazard |
 |---|---|---|
-| 1 | Azure Drift | **Comets** streak across the arena and hit enemies too |
-| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** pop when you get close (shoot them for XP) / **Prisms** pull in your hearts and split them into three charged ones (enemy bullets split too), and flare rays of light |
-| 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and burn enemies / **Tesla pylons** arc lightning that shocks everything between them |
-| 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in / **Currents** push everything and keep turning |
-| 5 | Black Corona | **Dimming**: the light fails and enemies hide in the dark |
+| 1 | Azure Drift | **Comets** streak across the arena in crosses and showers, and hit enemies too |
+| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** creep after you and burst into clouds of spores up close (shoot them for XP) / **Prisms** pull in your hearts and split them into three charged ones (enemy bullets split too), and flare rays of light |
+| 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and send rings of fire rolling slowly outward (jump them or dash through); they burn enemies too / **Tesla pylons** arc lightning that shocks everything between them |
+| 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in / **Currents** drag only you (the swarm swims free) and keep turning; **whirlpools** pull you round and burst |
+| 5 | Black Corona | **Dimming**: the light fails more often than not, and you only see a small circle around you |
 
 Hazards pause during boss fights.
 
@@ -81,7 +81,7 @@ Touching a boss costs two hearts.
 - Burn stacks with every hit.
 - Sweetheart is pure XP (+15% per level) for keeping up in the late sectors.
 
-The newest four are their own kinds of attack: **The Ex** (a boomerang heart that always comes back), **Rose Whip** (a thorny lash that cuts bullets out of the air), **Mirror Ball** (a disco ball that scatters hearts fired through it into light beams) and **Love Letter** (an envelope that drifts into a crowd and bursts into a spiral of hearts).
+The newest four are their own kinds of attack: **The Ex** (a boomerang heart that always comes back), **Rose Whip** (a thorny lash whose swing snags the closest bullets), **Mirror Ball** (a disco ball that scatters hearts fired through it into light beams) and **Love Letter** (an envelope that drifts into a crowd and bursts into a spiral of hearts).
 
 Each skill except Sweetheart has a **signature partner**:
 

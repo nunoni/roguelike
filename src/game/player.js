@@ -143,7 +143,7 @@ function ramStep(g, p, dt) {
   }
   for (const b of g.bullets) {
     const dx = b.x - p.x, dy = b.y - p.y;
-    if (!b.dead && dx * dx + dy * dy < 100 * 100) { b.dead = true; g.fx.mote(b.x, b.y, COL.orange, 1, 5, 0.3, 200); }
+    if (!b.dead && dx * dx + dy * dy < 70 * 70) { b.dead = true; g.fx.mote(b.x, b.y, COL.orange, 1, 5, 0.3, 200); }
   }
   p.ramT = (p.ramT || 0) - dt;
   if (p.ramT <= 0 && g.zones.length < 120) {

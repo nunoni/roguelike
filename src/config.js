@@ -30,21 +30,21 @@ export const COL = {
 
 /** Every sector has its own palette and stage hazard (see game/hazards.js). */
 export const SECTORS = [
-  { id: 'azure', name: 'AZURE DRIFT', hazard: 'COMETS', blurb: 'Comets streak across the arena and hit enemies too',
+  { id: 'azure', name: 'AZURE DRIFT', hazard: 'COMETS', blurb: 'Comet showers streak across the arena and hit enemies too',
     c1: [0.05, 0.12, 0.42], c2: [0.32, 0.08, 0.5], c3: [0.1, 0.6, 0.8], grid: [0.2, 0.5, 1.0] },
-  { id: 'verdant', name: 'VERDANT RIFT', hazard: 'SPORE PODS', blurb: 'Pods pop into spores up close; shoot them for XP',
+  { id: 'verdant', name: 'VERDANT RIFT', hazard: 'SPORE PODS', blurb: 'Pods creep after you and burst into spores; shoot them for XP',
     c1: [0.03, 0.3, 0.26], c2: [0.1, 0.12, 0.45], c3: [0.4, 0.9, 0.4], grid: [0.15, 0.9, 0.6] },
   { id: 'crystal', name: 'CRYSTAL CASCADE', hazard: 'PRISMS', blurb: 'Prisms split hearts and bullets in three, and flare rays of light',
     c1: [0.12, 0.22, 0.4], c2: [0.32, 0.08, 0.3], c3: [0.6, 0.9, 1.0], grid: [0.9, 0.5, 0.9] },
-  { id: 'ember', name: 'EMBER REACH', hazard: 'SOLAR FLARES', blurb: 'Flares scorch the ground; lure enemies into the fire',
+  { id: 'ember', name: 'EMBER REACH', hazard: 'SOLAR FLARES', blurb: 'Flares send rings of fire rolling outward; lure enemies in',
     c1: [0.42, 0.1, 0.05], c2: [0.4, 0.05, 0.3], c3: [1.0, 0.6, 0.2], grid: [1.0, 0.45, 0.2] },
   { id: 'storm', name: 'STATIC STORM', hazard: 'TESLA PYLONS', blurb: 'Pylons arc lightning that shocks everything between them',
     c1: [0.06, 0.08, 0.36], c2: [0.2, 0.04, 0.4], c3: [0.5, 0.7, 1.0], grid: [0.4, 0.55, 1.0] },
   { id: 'hollow', name: 'THE HOLLOW', hazard: 'RIFTS', blurb: 'Gravity rifts drag you, enemies and bullets in',
     c1: [0.2, 0.03, 0.32], c2: [0.02, 0.02, 0.12], c3: [0.9, 0.2, 0.7], grid: [0.75, 0.25, 1.0] },
-  { id: 'tidal', name: 'TIDAL NEBULA', hazard: 'CURRENTS', blurb: 'A cosmic current pushes everything and keeps turning',
+  { id: 'tidal', name: 'TIDAL NEBULA', hazard: 'CURRENTS', blurb: 'The tide drags only you, and whirlpools burst',
     c1: [0.02, 0.24, 0.32], c2: [0.02, 0.06, 0.24], c3: [0.2, 0.95, 0.85], grid: [0.15, 0.75, 0.9] },
-  { id: 'corona', name: 'BLACK CORONA', hazard: 'DIMMING', blurb: 'The light fails; enemies hide in the dark',
+  { id: 'corona', name: 'BLACK CORONA', hazard: 'DIMMING', blurb: 'The light keeps failing; you can only see up close',
     c1: [0.16, 0.1, 0.02], c2: [0.01, 0.01, 0.03], c3: [1.0, 0.75, 0.35], grid: [1.0, 0.7, 0.3] },
 ];
 export const SECTOR_BY_ID = Object.fromEntries(SECTORS.map((s) => [s.id, s]));

@@ -102,7 +102,7 @@ function updateRangs(g, dt) {
       if (r.tick <= 0) { r.tick = 0.15; r.hits.clear(); }
       for (const b of g.bullets) {
         const dx = b.x - r.x, dy = b.y - r.y, rr = r.r + b.r + 6;
-        if (!b.dead && dx * dx + dy * dy < rr * rr) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 160); }
+        if (!b.dead && dx * dx + dy * dy < rr * rr) { b.dead = true; r.saw -= 0.25; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 160); }
       }
       if (r.saw <= 0) r.dead = true;
     } else if (r.out) {
@@ -146,7 +146,7 @@ function inArc(cx, cy, ang, R, half, x, y, pad) {
   return Math.abs(da) < half + pad / Math.max(d, 1);
 }
 
-const LASH_SWING = 0.26, LASH_LINGER = 0.7;
+const LASH_SWING = 0.26, LASH_LINGER = 0.7, WHIP_SNAG = 2;
 
 function lash(g, ang, R) {
   const p = g.player, st = g.stats, half = 1.0;
@@ -163,9 +163,10 @@ function lash(g, ang, R) {
       e.vx += (dx / d) * 520; e.vy += (dy / d) * 520;
     }
   }
-  for (const b of g.bullets) {
-    if (!b.dead && inArcP(b.x, b.y, b.r)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
-  }
+  // the swing snags only the few bullets closest to you
+  const snag = g.bullets.filter((b) => !b.dead && inArcP(b.x, b.y, b.r));
+  if (snag.length > WHIP_SNAG + st.whip) snag.sort((u, v) => ((u.x - p.x) ** 2 + (u.y - p.y) ** 2) - ((v.x - p.x) ** 2 + (v.y - p.y) ** 2));
+  for (const b of snag.slice(0, WHIP_SNAG + st.whip)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
   g.fx.spray(p.x, p.y, ang, half, COL.rose, 10, R * 2.2, 0.3, 4);
   g.audio.play('dash');
 }
@@ -179,9 +180,6 @@ function updateLashes(g, dt) {
     l.tick = 0.14;                                   // lingering thorns
     for (const e of g.grid.query(l.x, l.y, l.R + 60, [])) {
       if (g.hittable(e) && inArc(l.x, l.y, l.ang, l.R, l.half, e.x, e.y, e.r)) g.damageEnemy(e, l.dmg, QUIET);
-    }
-    for (const b of g.bullets) {
-      if (!b.dead && inArc(l.x, l.y, l.ang, l.R, l.half, b.x, b.y, b.r)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
     }
   }
   g.lashes = g.lashes.filter((l) => l.t < l.dur);

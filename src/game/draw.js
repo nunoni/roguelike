@@ -240,6 +240,23 @@ function drawHazards(g, B, t, vis) {
       B.line(x, y, x + ux * L, y + uy * L, 1.4, COL.teal, 0.22 * Math.min(1, S / 100), 0.5);
     }
   }
+  if (hz.waves) for (const w of hz.waves) {         // flare fire waves rolling outward
+    const fade = 1 - w.r / w.max, fl = 0.8 + 0.2 * Math.sin(t * 30 + w.r * 0.1);
+    B.ring(w.x, w.y, w.r, COL.orange, (0.5 + 0.5 * fade) * fl, 7, 1.2);
+    B.ring(w.x, w.y, w.r - 5, COL.red, 0.5 * fade, 3, 0.8);
+    B.ring(w.x, w.y, w.r + 4, COL.gold, 0.6 * fade * fl, 1.5, 1);
+  }
+  if (hz.pools) for (const w of hz.pools) {         // whirlpools: a closing spiral, then a burst
+    if (!vis(w.x, w.y, w.r * 1.6)) continue;
+    const k = Math.min(1, w.t / w.dur), warn = k > 0.75 ? 0.5 + 0.5 * Math.sin(t * 40) : 0;
+    B.circle(w.x, w.y, w.r, COL.teal, 0.08 + 0.14 * k, 0, 1, 0, 0);
+    B.ring(w.x, w.y, w.r, tint(COL.teal, COL.white, warn).slice(), 0.5 + 0.4 * k, 2.2, 0.8);
+    B.ring(w.x, w.y, w.r * (1 - k), COL.cyan, 0.8, 2.5, 1);
+    for (let i = 0; i < 5; i++) {
+      const a = w.spin * t * (2 + 3 * k) + (i / 5) * TAU;
+      B.arc(w.x, w.y, w.r * (0.35 + 0.12 * i), a, 0.9, 2, COL.cyan, 0.35 + 0.4 * k, 0.6);
+    }
+  }
 }
 
 function drawGates(g, B, glyphs, t) {
@@ -777,6 +794,10 @@ function drawAllies(g, B, t) {
   }
   for (const o of g.orbitals) {
     if (!o) continue;
+    if (o.cd > 0) {                              // mending after a block: a hollow outline
+      B.heart(o.x, o.y, o.r * 0.85, o.a + Math.PI / 2, COL.rose, 0.4, 1.4, 0, 0.3);
+      continue;
+    }
     B.glow(o.x - Math.cos(o.a + Math.PI / 2) * 12, o.y - Math.sin(o.a + Math.PI / 2) * 12, 22, 7, o.a + Math.PI / 2, COL.rose, 0.7);
     B.heart(o.x, o.y, o.r, o.a + Math.PI / 2, COL.rose, 1, 2, 0.8, 1);
   }

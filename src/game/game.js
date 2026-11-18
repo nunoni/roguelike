@@ -13,7 +13,7 @@ import { updateProjectiles, spawnProj, chainFrom } from './weapons.js';
 import { updateSpells } from './spells.js';
 import { igniteEnemy, envyEnemy, tiedTo } from './status.js';
 import { Waves } from './waves.js';
-import { updateHazards, clearHazards } from './hazards.js';
+import { updateHazards, clearHazards, flareWave } from './hazards.js';
 import { updateArsenal, dropDecoy, goldStream, goldCollect } from './arsenal.js';
 import { updateLoot } from './loot.js';
 import { noteGrave } from './casters.js';
@@ -238,10 +238,10 @@ export class Game {
     const p = this.player, st = this.stats, fx = this.fx;
     if (p.dead) return;
     this.stat.glowups = (this.stat.glowups || 0) + 1;
-    const R = 430;
+    const R = 430, clearR = 260;
     for (const b of this.bullets) {
       const dx = b.x - p.x, dy = b.y - p.y;
-      if (!b.dead && dx * dx + dy * dy < R * R) { b.dead = true; fx.mote(b.x, b.y, COL.gold, 1, 5, 0.4, 200); }
+      if (!b.dead && dx * dx + dy * dy < clearR * clearR) { b.dead = true; fx.mote(b.x, b.y, COL.gold, 1, 5, 0.4, 200); }
     }
     this.explode(p.x, p.y, R, st.damage * (5 + 0.12 * this.level), { col: COL.gold, knock: 380 });
     for (const k of this.pickups) if (k.kind === 'xp') k.pull = true;
@@ -636,6 +636,7 @@ export class Game {
             if (z.harm) {                  // hazard blasts (solar flares) hit enemies too
               this.explode(z.x, z.y, z.r, st.damage * z.harm, { col: COL.orange });
               if (z.burn) this.zones.push({ kind: 'fire', x: z.x, y: z.y, r: z.r * 0.85, t: 0, dur: z.burn, tick: 0 });
+              if (z.flare) flareWave(this, z.x, z.y, z.r);
             }
           }
           break;
@@ -666,7 +667,7 @@ export class Game {
             if (tick) this.damageEnemy(e, z.dmg, QUIET);
           }
           if (st.fus.eventhorizon) {
-            const br = z.r * 0.7;
+            const br = z.r * 0.45;
             for (const b of this.bullets) {
               const dx = z.x - b.x, dy = z.y - b.y;
               if (!b.dead && dx * dx + dy * dy < br * br) { b.dead = true; this.addXp(0.5); this.fx.mote(b.x, b.y, COL.violet, 1, 4, 0.4, 60); }
