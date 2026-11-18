@@ -319,10 +319,10 @@ function drawPickups(g, B, t, vis) {
       if (gold && k.pull) {                      // Gold Rush: a golden stream
         const sp = Math.hypot(k.vx, k.vy) || 1;
         B.glow(k.x - k.vx / sp * 14, k.y - k.vy / sp * 14, 26, 6, Math.atan2(k.vy, k.vx), COL.gold, 0.8);
-        B.heart(k.x, k.y, (s + 2) * bob, Math.PI / 2, COL.gold, 1, 1.4, 0.85, 1.2, 0);
+        B.heart(k.x, k.y, (s + 1.5) * bob, Math.PI / 2, COL.gold, 1, 1.2, 0.5, 0.6, 0);
       } else {                                   // XP: little upright pink hearts
-        B.heart(k.x, k.y, (s + 2) * bob, Math.PI / 2, XP_PINK, 1, 1.2, 0.85, 0.9, 0);
-        B.heart(k.x, k.y - 0.5, (s + 2) * 0.4, Math.PI / 2, COL.white, 0.9, 0, 1, 0.5, 0);
+        // kept soft on purpose: hundreds of these can be on screen and bright fills stack into a bloom haze
+        B.heart(k.x, k.y, (s + 1.5) * bob, Math.PI / 2, XP_PINK, 0.95, 1.1, 0.45, 0.45, 0);
       }
     } else if (k.kind === 'heart') {             // healing: a big red heart with a white cross
       const hs = 14 + Math.sin(t * 6) * 2;
