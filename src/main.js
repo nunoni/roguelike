@@ -183,7 +183,7 @@ function boot() {
       fx.text(game.player.x, game.player.y - 50, input.autoFire ? 'AUTO FIRE' : 'MANUAL FIRE', [1, 1, 1], 12, 0.9);
     }
     if (game.state === 'levelup') {
-      for (let i = 0; i < 3; i++) if (input.take('Digit' + (i + 1)) || input.take('Numpad' + (i + 1))) choose(i);
+      for (let i = 0; i < 4; i++) if (input.take('Digit' + (i + 1)) || input.take('Numpad' + (i + 1))) choose(i);
       if (input.take('KeyR')) { if (game.reroll()) { audio.play('pick'); menus.levelUp(game); } }
       return;
     }

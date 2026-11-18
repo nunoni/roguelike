@@ -183,7 +183,7 @@ export function computeStats(L, F, bonusHp = 0) {
  * a weighted draw that favours skills you already own and their fusion partners,
  * so builds converge instead of spreading thin.
  */
-export function rollChoices(game, n = 3) {
+export function rollChoices(game, n = 4) {
   const { levels: L, fusions: F, rng } = game;
   const out = [];
   // ready fusions first: signature ones, then cross-fusions, each in random order
@@ -218,7 +218,7 @@ export function rollChoices(game, n = 3) {
     pool.splice(pool.indexOf(pick), 1);
     out.push({ kind: 'skill', id: pick.id });
   }
-  while (out.length < n) out.push({ kind: out.length % 2 ? 'score' : 'heal', id: out.length % 2 ? 'score' : 'heal' });
+  for (const k of ['heal', 'score']) if (out.length < n) out.push({ kind: k, id: k });   // bonus cards once the pool runs dry
   return out;
 }
 
