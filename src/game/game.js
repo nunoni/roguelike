@@ -225,7 +225,26 @@ export class Game {
       this.level++;
       this.xpNeed = xpForLevel(this.level);
       this.pending++;
+      if (this.stats.fus.glowup) this.delayed.push({ t: 0, fn: () => this.glowUp() });
     }
+  }
+
+  /** Glow Up: every level-up releases a nova and calls in all the XP. */
+  glowUp() {
+    const p = this.player, st = this.stats, fx = this.fx;
+    if (p.dead) return;
+    this.stat.glowups = (this.stat.glowups || 0) + 1;
+    const R = 430;
+    for (const b of this.bullets) {
+      const dx = b.x - p.x, dy = b.y - p.y;
+      if (!b.dead && dx * dx + dy * dy < R * R) { b.dead = true; fx.mote(b.x, b.y, COL.gold, 1, 5, 0.4, 200); }
+    }
+    this.explode(p.x, p.y, R, st.damage * (5 + 0.12 * this.level), { col: COL.gold, knock: 380 });
+    for (const k of this.pickups) if (k.kind === 'xp') k.pull = true;
+    fx.shock(p.x, p.y, 1.6, 1100, 0.8);
+    fx.ring(p.x, p.y, COL.white, 30, R, 0.45, 5);
+    fx.text(p.x, p.y - 56, 'GLOW UP', COL.gold, 15, 1);
+    p.invuln = Math.max(p.invuln, 0.6);
   }
 
   openLevelUp() {

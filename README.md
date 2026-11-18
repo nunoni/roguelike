@@ -67,14 +67,15 @@ Hazards pause during boss fights.
 
 Touching a boss costs two hearts.
 
-**Skills.** There are 32 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
+**Skills.** There are 33 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
 - Racing Pulse also makes spells cast faster.
 - Cherubs copy your extra hearts, fire rate and heart effects.
 - Burn stacks with every hit.
+- Sweetheart is pure XP (+15% per level) for keeping up in the late sectors.
 
 The newest four are their own kinds of attack: **The Ex** (a boomerang heart that always comes back), **Rose Whip** (a thorny lash that cuts bullets out of the air), **Mirror Ball** (a disco ball that scatters hearts fired through it into light beams) and **Love Letter** (an envelope that drifts into a crowd and bursts into a spiral of hearts).
 
-Each skill has a **signature partner**:
+Each skill except Sweetheart has a **signature partner**:
 
 | | | Fusion |
 |---|---|---|
@@ -95,12 +96,13 @@ Each skill has a **signature partner**:
 | The Ex | Rose Whip | **Whiplash** (the caught boomerang becomes a buzzsaw around you) |
 | Mirror Ball | Love Letter | **Fan Mail** (on the beat, homing letters to everyone in the light) |
 
-There are also 19 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire, Heartache, and five that add brand-new mechanics:
+There are also 20 **cross-fusions** that mix skills from different pairs: Thermal Shock, Wildfire, Fever Pitch, Starburst, Singularity, Halo, Thunderstruck, Skipping Heart, Serenade, Choir, Encore, Butterfly Kiss, Live Wire, Heartache, and five that add brand-new mechanics:
 - **Cupid's Quiver** (Cupid's Aim + Heartbreak): halves stick into enemies like arrows, then all rip out at once.
 - **Laser Tag** (Piercing Gaze + Rebound): every pierce and ricochet draws a burning laser between hit points.
 - **Gold Rush** (Attraction + Stolen Heart): XP flying to you cuts through enemies; every 150 XP drops a heart.
 - **Heart of Gold** (Guarded Heart + Big Heart): a broken barrier leaves a golden decoy that enemies chase and shoot, then it explodes.
 - **Running Wild** (Passion + Lighthearted): moving builds heat; a full bar turns your dash into a flaming ram.
+- **Glow Up** (Sweetheart + Attraction): every level-up releases a nova that wipes nearby bullets, blasts enemies and pulls in all XP on the map.
 
  Each skill can only be spent on **one** fusion per run, so when two are ready at once you have to choose.
 

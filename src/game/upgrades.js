@@ -36,6 +36,7 @@ export const SKILLS = [
   { id: 'ex', name: 'The Ex', cat: 'spell', max: 4, desc: 'Throws a big boomerang heart that always comes back, piercing on the way out and on the way home.', lv: (l) => `${l >= 3 ? 2 : 1} boomerang${l >= 3 ? 's' : ''} every ${(2.4 - 0.2 * l).toFixed(1)}s, ${Math.round((1.6 + 0.5 * l) * 100)}% damage` },
   { id: 'whip', name: 'Rose Whip', cat: 'spell', max: 4, desc: 'A thorny whip lashes at nearby enemies, cutting bullets out of the air and pulling enemies in.', lv: (l) => `Every ${(2 - 0.2 * l).toFixed(1)}s, reach ${200 + 30 * l}, ${Math.round((2 + 0.6 * l) * 100)}% damage` },
   { id: 'mirror', name: 'Mirror Ball', cat: 'spell', max: 4, desc: 'A disco ball floats ahead of you. Hearts fired through it scatter into light beams, and on the beat it spotlights enemies.', lv: (l) => `${MIRROR_N[l]} beam${MIRROR_N[l] > 1 ? 's' : ''} per heart, ${l} spotlight${l > 1 ? 's' : ''} every other beat` },
+  { id: 'xp', name: 'Sweetheart', cat: 'stat', max: 5, solo: true, desc: 'Everyone wants to be near you: +15% XP from everything.', lv: (l) => `+${15 * l}% XP` },
   { id: 'letter', name: 'Love Letter', cat: 'spell', max: 4, desc: 'A sealed letter drifts into the thickest crowd and bursts open into a spiral of hearts.', lv: (l) => `Every ${(4.6 - 0.5 * l).toFixed(1)}s, ${10 + 4 * l} hearts` },
 ];
 
@@ -81,6 +82,7 @@ export const FUSIONS = [
   { id: 'lasertag', type: 'cross', name: 'Laser Tag', from: ['pierce', 'bounce'], desc: 'Every pierce and ricochet draws a burning laser between the heart\'s last two hit points.' },
   { id: 'goldrush', type: 'cross', name: 'Gold Rush', from: ['magnet', 'steal'], desc: 'XP you pull in becomes a golden stream that hurts every enemy it flies through. Every 150 XP drops a healing heart.' },
   { id: 'heartofgold', type: 'cross', name: 'Heart of Gold', from: ['shield', 'hp'], desc: 'When your barrier breaks it leaves a golden decoy. Enemies chase and shoot it instead of you, then it explodes.' },
+  { id: 'glowup', type: 'cross', name: 'Glow Up', from: ['xp', 'magnet'], desc: 'Every level-up releases a nova that wipes nearby bullets, blasts enemies around you and pulls in all XP on the map.' },
   { id: 'runningwild', type: 'cross', name: 'Running Wild', from: ['dmg', 'speed'], desc: 'Moving builds heat. When it is full your next dash becomes a flaming ram that bulldozes enemies and bullets.' },
 ];
 for (const f of FUSIONS) f.type ||= 'pair';
@@ -144,7 +146,7 @@ export function computeStats(L, F, bonusHp = 0) {
     crit: 0.05 + 0.08 * l('crit'),
     critMul: 2 + 0.15 * l('crit'),
     magnet: PLAYER.magnet * (1 + 0.4 * l('magnet')),
-    xpMul: 1 + 0.08 * l('magnet'),
+    xpMul: 1 + 0.08 * l('magnet') + 0.15 * l('xp'),
     steal: 0.012 * l('steal'),
     pulse: l('pulse'),
     orbit: l('orbit'),

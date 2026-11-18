@@ -79,7 +79,10 @@ console.log('catalogue');
       if (f.type === 'pair') { check(!sig.has(id), `skill ${id} has a single signature fusion`); sig.add(id); }
     }
   }
-  check(sig.size === SKILLS.length, 'every skill has a signature partner');
+  const RECIPES_OF_T = {};
+  for (const f of FUSIONS) for (const id of f.from) RECIPES_OF_T[id] = (RECIPES_OF_T[id] || 0) + 1;
+  check(sig.size === SKILLS.filter((s) => !s.solo).length, 'every skill has a signature partner (except solo skills)');
+  for (const s of SKILLS) check((RECIPES_OF_T[s.id] || 0) >= 1, `${s.id} can fuse into something`);
   const g = newGame({ seed: 1 });
   for (const s of SKILLS) for (let l = 1; l <= s.max; l++) check(typeof s.lv(l) === 'string', `${s.id} lv${l} text`);
   for (const s of SKILLS) {
@@ -196,6 +199,7 @@ console.log('arsenal mechanics');
     { name: 'Laser Tag lines', skills: ['pierce', 'bounce'], fus: ['lasertag'], probe: (g, s) => { if (g.tags.length) s.ok = 1; } },
     { name: 'Gold Rush stream', skills: ['magnet', 'steal'], fus: ['goldrush'], probe: (g, s) => { if (g.pickups.some((k) => k.hit && k.hit.length)) s.ok = 1; } },
     { name: 'Heart of Gold decoy', skills: ['shield', 'hp'], fus: ['heartofgold'], probe: (g, s) => { if (g.decoy) s.ok = 1; else if (g.player.shield && g.player.invuln <= 0) g.hurtPlayer(1, g.player.x, g.player.y); } },
+    { name: 'Glow Up nova', skills: ['xp', 'magnet'], fus: ['glowup'], probe: (g, s) => { if (g.stat.glowups > 0) s.ok = 1; } },
     { name: 'Running Wild ram', skills: ['dmg', 'speed'], fus: ['runningwild'], probe: (g, s) => { if (g.player.ram) s.ok = 1; } },
   ];
   for (const c of cases) {
