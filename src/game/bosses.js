@@ -1109,7 +1109,7 @@ Object.assign(DEFS, {
   },
   plate: { hp: 70, speed: 0, r: 26, xp: 0, threat: 0, col: 'blue', ai() {}, noMove: true, noSep: true, noCharm: true, heavy: true, noElite: true, free: true, untargetable: false, score: 20 },
   binary: {
-    ...bossBase, name: 'BINARY', hp: 8500, speed: 0, r: 52, xp: 90, col: 'amber', score: 4000, ai: aiBinary, noMove: true,
+    ...bossBase, name: 'BINARY', hp: 11500, speed: 0, r: 52, xp: 90, col: 'amber', score: 4000, ai: aiBinary, noMove: true,
     init(g, e, o) {
       e.idx = o.idx || 0;
       e.ctl = o.ctl || { x: e.x, y: e.y, ang: 0, rad: 250, t: 0, frame: -1, beam: null };
@@ -1117,7 +1117,7 @@ Object.assign(DEFS, {
     },
   },
   ouroboros: {
-    ...bossBase, name: 'OUROBOROS', hp: 32000, speed: 330, r: 44, xp: 220, col: 'teal', score: 6000, ai: aiOuroboros, noMove: true,
+    ...bossBase, name: 'OUROBOROS', hp: 45000, speed: 330, r: 44, xp: 220, col: 'teal', score: 6000, ai: aiOuroboros, noMove: true,
     init(g, e) {
       e.ca = 0; e.cdir = 1; e.mineT = 1; e.shotT = 1; e.timer = 5;
       makeSegments(g, e, 16, 'ouroseg');
@@ -1128,7 +1128,7 @@ Object.assign(DEFS, {
   },
   ouroseg: { hp: 1e9, speed: 0, r: 32, xp: 0, threat: 0, col: 'teal', ai() {}, noMove: true, noSep: true, untargetable: true, statusImmune: true, noCharm: true, heavy: true, noElite: true },
   hollow: {
-    ...bossBase, name: 'THE HOLLOW HEART', hp: 65000, speed: 110, r: 70, xp: 400, col: 'hot', score: 12000, ai: aiHollow, noMove: true,
+    ...bossBase, name: 'THE HOLLOW HEART', hp: 90000, speed: 110, r: 70, xp: 400, col: 'hot', score: 12000, ai: aiHollow, noMove: true,
     init(g, e) { e.phase = 1; e.timer = 2.5; e.last = 0; },
   },
 
@@ -1139,7 +1139,7 @@ Object.assign(DEFS, {
   },
   shard: { hp: 100, speed: 330, r: 22, xp: 6, threat: 0, col: 'ice', ai: aiShard, noCharm: true, noElite: true, heavy: true, noSep: true, score: 300 },
   weaver: {
-    ...bossBase, name: 'THE WEAVER', hp: 16500, speed: 150, r: 56, xp: 100, col: 'lime', score: 4000, ai: aiWeaver,
+    ...bossBase, name: 'THE WEAVER', hp: 21500, speed: 150, r: 56, xp: 100, col: 'lime', score: 4000, ai: aiWeaver,
     init(g, e) { e.anchors = []; e.anchorT = 1.2; e.weave = 0; e.reweaveT = 0; e.armor = 1; e.threads = new Map(); e.atk = -1; e.timer = 2.5; },
     onDeath(g, e) {
       for (const a of e.anchors) if (!a.dead) g.killEnemy(a, true);
@@ -1162,7 +1162,7 @@ Object.assign(DEFS, {
     },
   },
   metronome: {
-    ...bossBase, name: 'THE METRONOME', hp: 32000, speed: 110, r: 62, xp: 220, col: 'amber', score: 6000, ai: aiMetronome,
+    ...bossBase, name: 'THE METRONOME', hp: 40000, speed: 110, r: 62, xp: 220, col: 'amber', score: 6000, ai: aiMetronome,
     init(g, e) { e.beat = -1; e.bar = 0; e.pend = null; e.pend2 = null; e.rb = []; e.timer = 1; },
   },
   eclipse: {
