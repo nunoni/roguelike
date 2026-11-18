@@ -77,6 +77,7 @@ Touching a boss costs two hearts.
 **Skills.** There are 33 skills: stats, techniques that change how your hearts behave, and spells that act on their own. A few work together:
 - Racing Pulse also makes spells cast faster.
 - Cherubs copy your extra hearts, fire rate and heart effects.
+- **Spell Power:** every level you put into a spell (Heartbeat, Guardian Hearts, Irresistible, Skip a Beat, Shooting Stars, Butterflies, The Ex, Rose Whip, Mirror Ball, Love Letter) makes all your spells 5% stronger, so spell builds stack up like shooting builds do.
 - Burn stacks with every hit.
 - Sweetheart is pure XP (+15% per level) for keeping up in the late sectors.
 

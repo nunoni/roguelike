@@ -7,6 +7,7 @@ import { spawnProj, applyHitEffects } from './weapons.js';
 import { igniteEnemy, charmEnemy } from './status.js';
 
 const QUIET = { quiet: true };
+const CRIT_HIT = { crit: true };
 
 export function updateSpells(g, input, dt) {
   const p = g.player, st = g.stats, fx = g.fx;
@@ -48,7 +49,7 @@ export function updateSpells(g, input, dt) {
           if (!g.hittable(e)) continue;
           const dx = e.x - o.x, dy = e.y - o.y, rr = or + e.r + 4;
           if (dx * dx + dy * dy > rr * rr) continue;
-          g.damageEnemy(e, st.damage * (0.5 + 0.2 * st.orbit), QUIET);
+          g.damageEnemy(e, st.damage * st.spellPow * (0.8 + 0.3 * st.orbit), QUIET);
           fx.spray(o.x, o.y, Math.atan2(dy, dx), 1.5, COL.rose, 3, 240, 0.25, 3);
         }
       }
@@ -127,7 +128,7 @@ export function updateSpells(g, input, dt) {
       const t = g.findTarget(p.x, p.y, 640, null);
       if (t) {
         T.well = (9 - st.well) / st.spellRate;
-        g.zones.push({ kind: 'well', x: t.x, y: t.y, r: 230 + 25 * st.well, t: 0, dur: 2.6 + 0.3 * st.well, tick: 0, dmg: st.damage * 0.5 });
+        g.zones.push({ kind: 'well', x: t.x, y: t.y, r: 230 + 25 * st.well, t: 0, dur: 2.6 + 0.3 * st.well, tick: 0, dmg: st.damage * st.spellPow * 0.5 });
         fx.ring(t.x, t.y, COL.violet, 260, 20, 0.4, 4);
         g.audio.play('well');
       } else T.well = 0.5;
@@ -148,7 +149,7 @@ export function updateSpells(g, input, dt) {
         const i = Math.floor(g.rng.next() * cands.length), e = cands[i];
         if (cands.length > st.starN - k) cands.splice(i, 1);
         const j = k * 0.08;                                  // a short cascade, not one thud
-        g.zones.push({ kind: 'meteor', x: e.x + e.vx * (0.3 + j), y: e.y + e.vy * (0.3 + j), r: st.starR, t: -j, dur: 0.45, tick: 0, dmg: st.damage * (2 + 0.6 * st.stars) });
+        g.zones.push({ kind: 'meteor', x: e.x + e.vx * (0.3 + j), y: e.y + e.vy * (0.3 + j), r: st.starR, t: -j, dur: 0.45, tick: 0, dmg: st.damage * st.spellPow * (2.4 + 0.75 * st.stars) });
       }
     }
   }
@@ -175,7 +176,7 @@ export function firePulse(g, x, y) {
     if (!g.hittable(e)) continue;
     const dx = e.x - x, dy = e.y - y, d = Math.hypot(dx, dy) || 1;
     if (d > R + e.r) continue;
-    g.damageEnemy(e, st.damage * (1.2 + 0.5 * st.pulse), null);
+    g.damageEnemy(e, st.damage * st.spellPow * (1.6 + 0.6 * st.pulse), CRIT_HIT);
     if (e.dead) continue;
     if (st.fus.fever) {                          // Fever Pitch: 3 burn stacks
       const dps = st.damage * Math.max(0.5, st.burn);
@@ -191,7 +192,7 @@ export function firePulse(g, x, y) {
       for (const e of g.enemies) {
         if (!g.hittable(e)) continue;
         const rr = e.r + 14;
-        if (segDist2(e.x, e.y, o.x, o.y, x2, y2) < rr * rr) g.damageEnemy(e, st.damage * 3.2, null);
+        if (segDist2(e.x, e.y, o.x, o.y, x2, y2) < rr * rr) g.damageEnemy(e, st.damage * st.spellPow * 3.2, null);
       }
     }
   }
@@ -230,12 +231,12 @@ function updateButterflies(g, dt) {
       b.vx = damp(b.vx, (dx / d) * sp, 10, dt);
       b.vy = damp(b.vy, (dy / d) * sp, 10, dt);
       if (d < t.r + 12) {
-        const dmg = st.damage * 0.6 * (b.swoop ? 3 : 1);
+        const dmg = st.damage * st.spellPow * 0.9 * (b.swoop ? 3 : 1);
         g.damageEnemy(t, dmg, KISS);
         applyHitEffects(g, t, dmg, 0.35, null);
         if (st.fus.kiss && !t.dead && g.rng.chance(0.15)) charmEnemy(g, t);
         fx.burst(b.x, b.y, b.swoop ? COL.gold : COL.violet, b.swoop ? 8 : 4, 220, 0.35, 3, 1);
-        b.dart = false; b.swoop = false; b.cd = 0.6;
+        b.dart = false; b.swoop = false; b.cd = 0.45;
         b.vx *= -0.4; b.vy *= -0.4;
       }
     } else {

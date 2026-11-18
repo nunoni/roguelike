@@ -681,7 +681,7 @@ export class Game {
             if (st.fus.singularity) {              // Singularity: stars rain into the collapse
               for (let k = 0; k < 5; k++) {
                 const a = this.rng.angle(), d = this.rng.range(0, z.r * 0.45);
-                this.zones.push({ kind: 'meteor', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d, r: st.starR, t: -k * 0.12, dur: 0.45, tick: 0, dmg: st.damage * (2 + 0.6 * st.stars) });
+                this.zones.push({ kind: 'meteor', x: z.x + Math.cos(a) * d, y: z.y + Math.sin(a) * d, r: st.starR, t: -k * 0.12, dur: 0.45, tick: 0, dmg: st.damage * st.spellPow * (2.4 + 0.75 * st.stars) });
               }
             }
             if (st.fus.eventhorizon) {

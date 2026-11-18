@@ -33,16 +33,18 @@ export const SKILLS = [
   { id: 'flutter', name: 'Butterflies', cat: 'spell', max: 4, desc: 'Butterflies flutter around you and dart at enemies.', lv: (l) => `${FLUTTER_N[l]} butterflies` },
   { id: 'envy', name: 'Jealousy', cat: 'tech', max: 4, desc: 'Hits stack Jealousy: the enemy takes more damage from everything.', lv: (l) => `+${(1.8 * l).toFixed(1)}% damage taken per stack, up to 5` },
   { id: 'strings', name: 'Heartstrings', cat: 'tech', max: 4, desc: 'Hits tie enemies together; damage to one also hurts the other.', lv: (l) => `${25 + 10 * (l - 1)}% of damage shared` },
-  { id: 'ex', name: 'The Ex', cat: 'spell', max: 4, desc: 'Throws a big boomerang heart that always comes back, piercing on the way out and on the way home.', lv: (l) => `${l >= 3 ? 2 : 1} boomerang${l >= 3 ? 's' : ''} every ${(2.4 - 0.2 * l).toFixed(1)}s, ${Math.round((1.6 + 0.5 * l) * 100)}% damage` },
-  { id: 'whip', name: 'Rose Whip', cat: 'spell', max: 4, desc: 'A thorny whip lashes at nearby enemies, cutting bullets out of the air and pulling enemies in.', lv: (l) => `Every ${(2 - 0.2 * l).toFixed(1)}s, reach ${200 + 30 * l}, ${Math.round((2 + 0.6 * l) * 100)}% damage` },
+  { id: 'ex', name: 'The Ex', cat: 'spell', max: 4, desc: 'Throws a big boomerang heart that always comes back, piercing on the way out and on the way home.', lv: (l) => `${l >= 3 ? 2 : 1} boomerang${l >= 3 ? 's' : ''} every ${(2.4 - 0.2 * l).toFixed(1)}s, ${Math.round((2.1 + 0.7 * l) * 100)}% damage, range ${Math.round(600 * (0.62 + 0.07 * l))}` },
+  { id: 'whip', name: 'Rose Whip', cat: 'spell', max: 4, desc: 'A thorny whip lashes at nearby enemies and pulls them in. Its thorns linger, cutting enemies and bullets out of the air.', lv: (l) => `Every ${(1.8 - 0.2 * l).toFixed(1)}s, reach ${210 + 30 * l}, ${Math.round((2.6 + 0.8 * l) * 100)}% damage` },
   { id: 'mirror', name: 'Mirror Ball', cat: 'spell', max: 4, desc: 'A disco ball floats ahead of you. Hearts fired through it scatter into light beams, and on the beat it spotlights enemies.', lv: (l) => `${MIRROR_N[l]} beam${MIRROR_N[l] > 1 ? 's' : ''} per heart, ${l} spotlight${l > 1 ? 's' : ''} every other beat` },
   { id: 'xp', name: 'Sweetheart', cat: 'stat', max: 5, solo: true, desc: 'Everyone wants to be near you: +15% XP from everything.', lv: (l) => `+${15 * l}% XP` },
-  { id: 'letter', name: 'Love Letter', cat: 'spell', max: 4, desc: 'A sealed letter drifts into the thickest crowd and bursts open into a spiral of hearts.', lv: (l) => `Every ${(4.6 - 0.5 * l).toFixed(1)}s, ${10 + 4 * l} hearts` },
+  { id: 'letter', name: 'Love Letter', cat: 'spell', max: 4, desc: 'A sealed letter drifts into the thickest crowd and bursts open into a spiral of hearts.', lv: (l) => `${l >= 4 ? 3 : l >= 3 ? 2 : 1} letter${l >= 3 ? 's' : ''} every ${(4.6 - 0.5 * l).toFixed(1)}s, ${10 + 2 * l} hearts each` },
 ];
 
 const FLUTTER_N = [0, 2, 3, 4, 6];
 const STAR_N = [0, 1, 2, 2, 3];
 const MIRROR_N = [0, 1, 2, 2, 3];
+/** Spells that count toward Spell Power (Cherubs copy your shooting instead; the barrier deals no damage). */
+const SPELL_IDS = ['pulse', 'orbit', 'well', 'dash', 'stars', 'flutter', 'ex', 'whip', 'mirror', 'letter'];
 
 // type 'pair': each skill's signature fusion. type 'cross': mixes skills from
 // different pairs. A skill can only ever be spent on one fusion per run.
@@ -168,6 +170,9 @@ export function computeStats(L, F, bonusHp = 0) {
     mirror: l('mirror'),
     mirrorN: MIRROR_N[l('mirror')],
     letter: l('letter'),
+    // Spell Power: every level in a spell makes all spells a little stronger,
+    // so spell builds stack the way shooting upgrades multiply each other
+    spellPow: 1 + 0.05 * SPELL_IDS.reduce((n, id) => n + l(id), 0),
     dashCharges: 1 + (l('dash') >= 1 ? 1 : 0) + (l('dash') >= 4 ? 1 : 0),
     dashCd: PLAYER.dashCd * (1 - 0.07 * l('dash')) * (1 - 0.04 * l('speed')),
     fus: { ...F },
@@ -241,7 +246,8 @@ export function describeChoice(game, c) {
     .filter((r) => r.type === 'cross' && !F[r.id] && free(otherOf(r, s.id)))
     .map((r) => SKILL_BY_ID[otherOf(r, s.id)].name);
   return {
-    title: s.name, cat: s.cat, tag: lv === 0 ? 'NEW' : `LV ${lv + 1}`, desc: s.desc, detail: s.lv(lv + 1),
+    title: s.name, cat: s.cat, tag: lv === 0 ? 'NEW' : `LV ${lv + 1}`, desc: s.desc,
+    detail: s.lv(lv + 1) + (SPELL_IDS.includes(s.id) ? ' · +5% spell power' : ''),
     level: lv + 1, max: s.max, icon: s.id,
     fuse: p && f && !F[f.id] && free(p.id) ? { partner: p.name, result: f.name, ready: (L[p.id] || 0) >= p.max } : null,
     also,

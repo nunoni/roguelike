@@ -24,12 +24,13 @@ export function updateArsenal(g, dt) {
   if (st.ex > 0) {
     T.ex -= dt;
     if (T.ex <= 0) {
-      const t = g.findTarget(p.x, p.y, 700, null);
+      const t = g.findTarget(p.x, p.y, 820, null);
       if (t) {
         T.ex = (2.4 - 0.2 * st.ex) / st.spellRate;
+        const ot = 0.62 + 0.07 * st.ex;                // flight time out: longer throws as it levels
         const n = st.ex >= 3 ? 2 : 1, a0 = Math.atan2(t.y - p.y, t.x - p.x);
         for (let k = 0; k < n; k++) {
-          g.rangs.push({ x: p.x, y: p.y, ang: a0 + (n > 1 ? (k - 0.5) * 0.6 : 0), t: 0, out: true, hits: new Set(), r: 24, rot: 0, dmg: st.damage * (1.6 + 0.5 * st.ex), saw: 0, tick: 0 });
+          g.rangs.push({ x: p.x, y: p.y, ang: a0 + (n > 1 ? (k - 0.5) * 0.6 : 0), t: 0, ot, out: true, hits: new Set(), r: 24, rot: 0, dmg: st.damage * st.spellPow * (2.1 + 0.7 * st.ex), saw: 0, tick: 0 });
         }
         g.audio.play('lunge');
       } else T.ex = 0.3;
@@ -39,11 +40,11 @@ export function updateArsenal(g, dt) {
   // ---- Rose Whip
   if (st.whip > 0) {
     T.whip -= dt;
-    const R = 200 + 30 * st.whip;
+    const R = 210 + 30 * st.whip;
     if (T.whip <= 0) {
       const t = g.findTarget(p.x, p.y, R + 60, null);
       if (t) {
-        T.whip = (2 - 0.2 * st.whip) / st.spellRate;
+        T.whip = (1.8 - 0.2 * st.whip) / st.spellRate;
         lash(g, Math.atan2(t.y - p.y, t.x - p.x), R);
       } else T.whip = 0.15;
     }
@@ -68,7 +69,12 @@ export function updateArsenal(g, dt) {
       const t = densest(g, p.x, p.y, 800);
       if (t) {
         T.letter = (4.6 - 0.5 * st.letter) / st.spellRate;
-        g.letters.push({ x: p.x, y: p.y, tgt: t, tx: t.x, ty: t.y, t: 0, rot: 0 });
+        const n = st.letter >= 4 ? 3 : st.letter >= 3 ? 2 : 1, picked = [t];
+        for (let k = 1; k < n; k++) {
+          const o = densest(g, p.x, p.y, 800, picked);
+          if (o) picked.push(o);
+        }
+        picked.forEach((o, k) => g.letters.push({ x: p.x, y: p.y, tgt: o, tx: o.x, ty: o.y, t: -k * 0.15, rot: 0 }));
         g.audio.play('pick');
       } else T.letter = 0.4;
     }
@@ -100,12 +106,12 @@ function updateRangs(g, dt) {
       }
       if (r.saw <= 0) r.dead = true;
     } else if (r.out) {
-      const v = 980 * Math.max(0, 1 - r.t / 0.62);
+      const v = 1200 * Math.max(0, 1 - r.t / r.ot);
       r.x += Math.cos(r.ang) * v * dt; r.y += Math.sin(r.ang) * v * dt;
-      if (r.t >= 0.62) { r.out = false; r.hits.clear(); }
+      if (r.t >= r.ot) { r.out = false; r.hits.clear(); }
     } else {
       const dx = p.x - r.x, dy = p.y - r.y, d = Math.hypot(dx, dy) || 1;
-      const v = Math.min(1400, 250 + (r.t - 0.62) * 2600);
+      const v = Math.min(1500, 250 + (r.t - r.ot) * 2600);
       r.x += (dx / d) * v * dt; r.y += (dy / d) * v * dt;
       if (d < 34 || r.t > 4) {
         if (st.fus.whiplash && d < 34) {
@@ -131,19 +137,25 @@ function updateRangs(g, dt) {
 }
 
 // ------------------------------------------------------------------ Rose Whip
+/** Is (x, y) inside a lash's arc around (cx, cy)? */
+function inArc(cx, cy, ang, R, half, x, y, pad) {
+  const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy);
+  if (d > R + pad) return false;
+  let da = (Math.atan2(dy, dx) - ang) % TAU;
+  if (da > Math.PI) da -= TAU; else if (da < -Math.PI) da += TAU;
+  return Math.abs(da) < half + pad / Math.max(d, 1);
+}
+
+const LASH_SWING = 0.26, LASH_LINGER = 0.7;
+
 function lash(g, ang, R) {
   const p = g.player, st = g.stats, half = 1.0;
-  g.lashes.push({ x: p.x, y: p.y, ang, R, half, t: 0, dur: 0.26 });
-  const dmg = st.damage * (2 + 0.6 * st.whip);
-  const inArc = (x, y, pad) => {
-    const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy);
-    if (d > R + pad) return false;
-    let da = (Math.atan2(dy, dx) - ang) % TAU;
-    if (da > Math.PI) da -= TAU; else if (da < -Math.PI) da += TAU;
-    return Math.abs(da) < half + pad / Math.max(d, 1);
-  };
+  const dmg = st.damage * st.spellPow * (2.6 + 0.8 * st.whip);
+  // the swing hits once, then the thorns hang in the air and keep cutting
+  g.lashes.push({ x: p.x, y: p.y, ang, R, half, t: 0, dur: LASH_SWING + LASH_LINGER, tick: LASH_SWING, dmg: dmg * 0.3 });
+  const inArcP = (x, y, pad) => inArc(p.x, p.y, ang, R, half, x, y, pad);
   for (const e of g.grid.query(p.x, p.y, R + 60, [])) {
-    if (!g.hittable(e) || !inArc(e.x, e.y, e.r)) continue;
+    if (!g.hittable(e) || !inArcP(e.x, e.y, e.r)) continue;
     g.damageEnemy(e, dmg, CRIT);
     applyHitEffects(g, e, dmg, 0.8, null);
     if (!e.dead && !e.boss && !e.def.heavy) {        // the thorns drag them in
@@ -152,14 +164,26 @@ function lash(g, ang, R) {
     }
   }
   for (const b of g.bullets) {
-    if (!b.dead && inArc(b.x, b.y, b.r)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
+    if (!b.dead && inArcP(b.x, b.y, b.r)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
   }
   g.fx.spray(p.x, p.y, ang, half, COL.rose, 10, R * 2.2, 0.3, 4);
   g.audio.play('dash');
 }
 
 function updateLashes(g, dt) {
-  for (const l of g.lashes) { l.t += dt; l.x = g.player.x; l.y = g.player.y; }
+  for (const l of g.lashes) {
+    l.t += dt; l.x = g.player.x; l.y = g.player.y;
+    if (l.t < LASH_SWING) continue;
+    l.tick -= dt;
+    if (l.tick > 0) continue;
+    l.tick = 0.14;                                   // lingering thorns
+    for (const e of g.grid.query(l.x, l.y, l.R + 60, [])) {
+      if (g.hittable(e) && inArc(l.x, l.y, l.ang, l.R, l.half, e.x, e.y, e.r)) g.damageEnemy(e, l.dmg, QUIET);
+    }
+    for (const b of g.bullets) {
+      if (!b.dead && inArc(l.x, l.y, l.ang, l.R, l.half, b.x, b.y, b.r)) { b.dead = true; g.fx.mote(b.x, b.y, COL.rose, 1, 4, 0.3, 200); }
+    }
+  }
   g.lashes = g.lashes.filter((l) => l.t < l.dur);
 }
 
@@ -179,7 +203,7 @@ function mirrorPass(g, m, T) {
       if (!t) break;
       skip.push(t.id);
       T.beams--;
-      const dmg = Math.max(q.dmg, st.damage) * 0.5;
+      const dmg = Math.max(q.dmg, st.damage) * 0.5 * st.spellPow;
       g.flashBeams.push({ x1: m.x, y1: m.y, x2: t.x, y2: t.y, t: 0.16, max: 0.16, col: COL.cyan });
       g.damageEnemy(t, dmg, CRIT);
       applyHitEffects(g, t, dmg, 0.3, null);
@@ -195,7 +219,7 @@ function mirrorBeat(g, m, spot) {
     if (!t) break;
     skip.push(t.id);
     g.flashBeams.push({ x1: m.x, y1: m.y, x2: t.x, y2: t.y, t: 0.3, max: 0.3, col: COL.gold, spot: true });
-    g.damageEnemy(t, st.damage * (1.4 + 0.4 * st.mirror), CRIT);
+    g.damageEnemy(t, st.damage * st.spellPow * (1.4 + 0.4 * st.mirror), CRIT);
   }
   if (st.fus.fanmail) {                              // Fan Mail: a letter for everyone in the light
     let sent = 0;
@@ -203,7 +227,7 @@ function mirrorBeat(g, m, spot) {
       if (sent >= 5 || !g.hittable(e) || e.def.untargetable) continue;
       if ((e.x - m.x) ** 2 + (e.y - m.y) ** 2 > 460 * 460) continue;
       const a = Math.atan2(e.y - m.y, e.x - m.x);
-      const q = spawnProj(g, m.x, m.y, a, { dmg: st.damage * 1.4, kind: 'letter', homing: 9, r: 10, spd: 700, life: 1.4, pierce: 0, bounce: 0, canSplit: false, coef: 0.5 });
+      const q = spawnProj(g, m.x, m.y, a, { dmg: st.damage * st.spellPow * 1.4, kind: 'letter', homing: 9, r: 10, spd: 700, life: 1.4, pierce: 0, bounce: 0, canSplit: false, coef: 0.5 });
       if (q) { q.tgt = e; q.mirrored = true; sent++; }
     }
   }
@@ -220,11 +244,12 @@ export function letterBurst(g, x, y, n, dmg) {
 }
 
 // ------------------------------------------------------------------ Love Letter
-function densest(g, x, y, range) {
+function densest(g, x, y, range, avoid = []) {
   let best = null, score = -1;
   const cands = [];
   for (const e of g.enemies) {
     if (!g.hittable(e) || e.def.untargetable) continue;
+    if (avoid.some((a) => (a.x - e.x) ** 2 + (a.y - e.y) ** 2 < 260 * 260)) continue;   // a different crowd
     if ((e.x - x) ** 2 + (e.y - y) ** 2 < range * range) cands.push(e);
   }
   for (let i = 0; i < cands.length && i < 40; i++) {
@@ -240,6 +265,7 @@ function updateLetters(g, dt) {
   const st = g.stats;
   for (const L of g.letters) {
     L.t += dt;
+    if (L.t < 0) { L.x = g.player.x; L.y = g.player.y; continue; }   // staggered launch
     if (L.tgt && !L.tgt.dead) { L.tx = L.tgt.x; L.ty = L.tgt.y; }
     const dx = L.tx - L.x, dy = L.ty - L.y, d = Math.hypot(dx, dy) || 1;
     const v = 300 + L.t * 260;
@@ -247,11 +273,11 @@ function updateLetters(g, dt) {
     L.rot = Math.sin(L.t * 9) * 0.25;
     if (d < 24 || L.t > 3.2) {
       L.dead = true;
-      const n = 10 + 4 * Math.max(1, st.letter), dmg = st.damage * (0.9 + 0.15 * st.letter);
+      const n = 10 + 2 * Math.max(1, st.letter), dmg = st.damage * st.spellPow * (0.95 + 0.2 * st.letter);
       const a0 = g.rng.angle();
       for (let w = 0; w < 2; w++) {                  // two waves, twisted: a spiral
         g.delayed.push({ t: w * 0.12, fn: () => {
-          for (let i = 0; i < n / 2; i++) spawnProj(g, L.x, L.y, a0 + w * 0.3 + (i / (n / 2)) * TAU, { dmg, r: 10, spd: 820, life: 0.55, pierce: 1, bounce: 0, homing: 0, canSplit: false, coef: 0.6 });
+          for (let i = 0; i < n / 2; i++) spawnProj(g, L.x, L.y, a0 + w * 0.3 + (i / (n / 2)) * TAU, { dmg, r: 10, spd: 820, life: 0.6, pierce: 1, bounce: 0, homing: 0, canSplit: false, coef: 0.6 });
         } });
       }
       g.fx.burst(L.x, L.y, COL.pink, 26, 420, 0.6, 5, 1);

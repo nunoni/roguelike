@@ -140,8 +140,9 @@ function drawArsenal(g, B, t, vis) {
     B.line(l.x1, l.y1, l.x2, l.y2, 2 * k, COL.white, k, 0);
   }
   for (const l of g.lashes) {                   // Rose Whip: a thorny crescent sweeping across
-    const k = l.t / l.dur, sweep = -l.half + 2 * l.half * Math.min(1, k * 1.6);
-    const fade = 1 - Math.max(0, (k - 0.6) / 0.4);
+    const k = Math.min(1, l.t / 0.26), sweep = -l.half + 2 * l.half * Math.min(1, k * 1.6);
+    const linger = Math.max(0, l.t - 0.26) / Math.max(0.01, l.dur - 0.26);
+    const fade = (l.t < 0.26 ? 1 : 1 - 0.65 * linger) * (0.85 + 0.15 * Math.sin(t * 30));
     const mid = l.ang + (sweep - l.half) / 2, half = (sweep + l.half) / 2;
     B.arc(l.x, l.y, l.R * 0.92, mid, half, 7, COL.rose, 0.9 * fade, 1.2);
     B.arc(l.x, l.y, l.R * 0.92, mid, half, 2, COL.white, fade, 0);
