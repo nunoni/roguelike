@@ -210,6 +210,26 @@ function drawHazards(g, B, t, vis) {
     if (pr.charge > 0) for (let i = 0; i < 3; i++) B.arc(pr.x, pr.y, pr.r * (2.6 - 1.4 * pr.charge), pr.rot + (i / 3) * TAU, 0.35, 2, COL.white, pr.charge, 1);
     B.star(pr.x, pr.y, pr.r * 1.25, 4, pr.rot, c, 1, 2.4, 0.35, 1, 0.9, 0.55);
     B.star(pr.x, pr.y, pr.r * 0.6, 4, -pr.rot * 1.4, COL.pink, 0.9, 1.6, 0.3, 1, 0, 0.5);
+    const ld = pr.over > 0 ? 1 : (pr.load || 0) / 32;      // charge meter, then the overcharge ring
+    if (ld > 0.05) B.arc(pr.x, pr.y, pr.r * 1.9, -Math.PI / 2, ld * TAU, 2, COL.white, 0.45 + 0.4 * ld, 0.8);
+    if (pr.over > 0) {
+      const q = 1 - pr.over / 1.1, fl = 0.5 + 0.5 * Math.sin(t * 40);
+      B.circle(pr.x, pr.y, 300, COL.ice, 0.05 + 0.1 * q, 0, 1, 0, 0);
+      B.ring(pr.x, pr.y, 300, tint(COL.ice, COL.white, fl).slice(), 0.5 + 0.4 * q, 2.4, 1);
+      B.ring(pr.x, pr.y, 300 * q, COL.white, 0.7, 2, 1);
+    }
+  }
+  if (hz.balls) for (const b of hz.balls) {         // ball lightning: a crackling orb, a ring as it charges
+    if (!vis(b.x, b.y, b.R)) continue;
+    const fade = Math.min(1, b.t * 2, b.life * 2), fl = 0.6 + 0.4 * Math.sin(t * 37 + b.wob * 5);
+    B.glow(b.x, b.y, 90, 90, 0, COL.cyan, (0.35 + 0.4 * b.charge) * fade);
+    B.circle(b.x, b.y, 15 + 4 * fl, tint(COL.cyan, COL.white, b.charge).slice(), fade, 2, 0.6, 1.4, 1);
+    for (let i = 0; i < 4; i++) {
+      const a = t * 9 + i * 1.7 + Math.sin(t * 13 + i) * 0.6;
+      B.line(b.x, b.y, b.x + Math.cos(a) * (24 + 10 * fl), b.y + Math.sin(a) * (24 + 10 * fl), 1.4, COL.white, 0.7 * fade, 1);
+    }
+    B.ring(b.x, b.y, b.R, COL.cyan, (0.12 + 0.55 * b.charge) * fade, 1.2 + 1.5 * b.charge, 0.6);
+    if (b.charge > 0) B.ring(b.x, b.y, b.R * (1 - b.charge * 0.85), COL.white, 0.6 * b.charge * fade, 2, 1);
   }
   if (hz.pylons) for (const py of hz.pylons) {
     if (py.ax === undefined) continue;
@@ -221,13 +241,22 @@ function drawHazards(g, B, t, vis) {
   }
   if (hz.rifts) for (const rf of hz.rifts) {
     if (!vis(rf.x, rf.y, rf.R)) continue;
-    B.circle(rf.x, rf.y, rf.core, [0.02, 0.0, 0.04], 1, 0, 1, 0, 1);
-    B.ring(rf.x, rf.y, rf.core, COL.hot, 0.9, 2.5, 1.2);
+    const op = rf.open ?? 1, inh = rf.inh > 0 ? 1 - rf.inh / 1.6 : 0, sp = 1 + 3 * inh, R = rf.R * op;
+    const core = rf.core * op * (1 + 0.5 * inh);
+    B.circle(rf.x, rf.y, core, [0.02, 0.0, 0.04], 1, 0, 1, 0, 1);
+    B.ring(rf.x, rf.y, core, tint(COL.hot, COL.white, inh).slice(), 0.9, 2.5 + 2 * inh, 1.2 + inh);
     for (let i = 0; i < 4; i++) {
-      const rr = rf.R * (1 - ((t * 0.5 + i / 4) % 1));
-      B.ring(rf.x, rf.y, rr, COL.violet, 0.35 * (1 - rr / rf.R), 1.5, 0.5);
+      const rr = R * (1 - ((t * 0.5 * sp + i / 4) % 1));
+      B.ring(rf.x, rf.y, rr, COL.violet, (0.35 + 0.4 * inh) * (1 - rr / Math.max(1, R)), 1.5, 0.5);
     }
-    for (let i = 0; i < 3; i++) B.arc(rf.x, rf.y, rf.core * 2.2, -t * 2.2 + (i / 3) * TAU, 0.7, 2.5, COL.pink, 0.7, 1);
+    for (let i = 0; i < 3; i++) B.arc(rf.x, rf.y, core * 2.2, -t * 2.2 * sp + (i / 3) * TAU, 0.7, 2.5, COL.pink, 0.7, 1);
+  }
+  if (hz.debris) for (const d of hz.debris) {       // rocks spiralling into the rifts
+    if (!vis(d.x, d.y, 40)) continue;
+    const fade = Math.min(1, d.t * 3), sp = Math.hypot(d.vx, d.vy) || 1;
+    B.line(d.x, d.y, d.x - (d.vx / sp) * Math.min(60, sp * 0.12), d.y - (d.vy / sp) * Math.min(60, sp * 0.12), d.r * 0.6, COL.violet, 0.18 * fade, 0.3);
+    B.ngon(d.x, d.y, d.r, d.sides, d.rot, COL.ghost, fade, 2, 0.35, 0.7, 0.9);
+    B.ngon(d.x, d.y, d.r * 0.45, 3, -d.rot, COL.hot, 0.6 * fade, 1.2, 0, 0.5);
   }
   if (hz.fx !== undefined) {                    // currents: streaks drifting with the flow
     const S = Math.hypot(hz.fx, hz.fy) || 1, ux = hz.fx / S, uy = hz.fy / S, cam = g.cam;
@@ -441,6 +470,15 @@ function drawEnemy(g, B, e, t, beat) {
       const firing = e.state === 1;
       B.star(x, y, r * 1.35, 3, rot, firing ? tint(c, COL.white, 0.35) : c, a, 2.4, firing ? 0.5 : 0.25, 1, 0.8, 0.3);
       B.circle(x, y, r * 0.32, c, a, 1.6, firing ? 1 : 0.4, 0, 0.9);
+      break;
+    }
+    case 'shade': {                              // Corona shade: a smudge of dark with burning eyes
+      const sh = e.shriek !== undefined ? clamp(e.shriek / 0.55, 0, 1) : 0, fl = 0.5 + 0.5 * Math.sin(t * 40);
+      B.circle(x, y, r * (1 + 0.4 * sh), [0.03, 0.02, 0.05], Math.max(a, 0.5), 1.5, 1, 0, 1);
+      B.ring(x, y, r * (1 + 0.4 * sh), sh ? tint(COL.red, COL.white, fl * sh).slice() : COL.ghost, Math.max(a, 0.35), 1.6, 0.6);
+      const ex = Math.cos(rot) * r * 0.25, ey = Math.sin(rot) * r * 0.25, nx = -Math.sin(rot) * r * 0.32, ny = Math.cos(rot) * r * 0.32;
+      for (const s2 of [-1, 1]) B.circle(x + ex + nx * s2, y + ey + ny * s2, 2.6 + 2 * sh, COL.red, 1, 0, 1, 1.6, 0);
+      if (sh) B.ring(x, y, r * (1.6 + 1.6 * sh), COL.red, 0.6 * (1 - sh * 0.5), 2, 1);
       break;
     }
     case 'phantom': {
@@ -757,6 +795,8 @@ function drawBullets(g, B, t, vis) {
     const a = Math.min(1, b.t * 10) * Math.min(1, b.life * 3);
     if (b.kind === 'bheart') {
       B.broken(b.x, b.y, b.r + 3, b.ang, COL.hot, a, 2, 0.5, 1, 0.8);
+    } else if (b.kind === 'shard') {
+      B.ngon(b.x, b.y, b.r + 3, 4, b.ang, COL.ice, a, 1.8, 0.45, 1, 0.8);
     } else if (b.kind === 'spore') {
       B.circle(b.x, b.y, b.r, COL.lime, a * 0.9, 1.4, 0.35, 0.8, 0.6);
       B.circle(b.x, b.y, b.r * 0.35, COL.white, a * 0.6, 0, 1, 0.5, 0);

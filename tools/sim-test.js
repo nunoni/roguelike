@@ -1,5 +1,5 @@
 // Headless checks: plays seeded bot runs with stubbed visuals/audio and asserts the
-// simulation stays sane.   node tools/sim-test.js [--balance N] [--verbose]
+// simulation stays sane.   node tools/sim-test.js [--balance N [--shard i/n]] [--verbose]
 
 import { Game } from '../src/game/game.js';
 import { botInput, botChoose } from '../src/game/bot.js';
@@ -132,11 +132,12 @@ console.log('full run (god mode, bot-chosen build)');
     onFrame: (g, f) => {
       if (g.gates && g.gates[0].t === 0) gates++;
       if (g.wave === 21 && !routeAt21) routeAt21 = [...g.route];
-      if (f % 10 === 0) for (const e of g.enemies) {
+      for (const e of g.enemies) {
         if (e.dead) continue;
+        if (e.type === 'siren' && e.state === 1) caster.song++;
+        if (f % 10) continue;
         if (e.guardT > 0) caster.guarded++;
         if (e.ghost) caster.ghost++;
-        if (e.type === 'siren' && e.state === 1) caster.song++;
       }
     },
   });
@@ -246,7 +247,8 @@ for (const sec of SECTORS) {
   g.route = [...ROUTE_TIERS.slice(0, ti).map((t) => t[0]), sec.id];
   const n0 = ti * WAVES_PER_SECTOR + 2;
   g.waves.n = n0 - 1; g.waves.timer = 0.1;
-  const seen = { comet: 0, pod: 0, refr: 0, flare: 0, arc: 0, rift: 0, flow: 0, dark: 0, pool: 0, volley: 0, wave: 0, creep: 0 };
+  const seen = { comet: 0, pod: 0, refr: 0, flare: 0, arc: 0, rift: 0, flow: 0, dark: 0, pool: 0, volley: 0, wave: 0, creep: 0, collapse: 0, over: 0, ball: 0, zap: 0, shade: 0, shriek: 0, dawn: 0, debris: 0, swallowed: 0 };
+  let wasDim = false;
   const r = run(g, {
     until: (g) => g.wave > n0 + 1, maxSeconds: 400,
     onFrame: (g) => {
@@ -262,6 +264,13 @@ for (const sec of SECTORS) {
       if (g.hz.waves && g.hz.waves.length) seen.wave++;
       for (const e of g.enemies) if (e.type === 'pod' && e.crept > 40) seen.creep++;
       if (g.dark && g.dark.hz && g.dark.k > 0.5) seen.dark++;
+      if (g.hz.rifts) for (const rf of g.hz.rifts) if (rf.open === 0) seen.collapse++;
+      if (g.hz.debris) { seen.debris = Math.max(seen.debris, g.hz.debris.length); for (const d of g.hz.debris) if (Math.min(...g.hz.rifts.map((rf) => Math.hypot(rf.x - d.x, rf.y - d.y))) < 40) seen.swallowed++; }
+      if (g.hz.prisms) for (const pr of g.hz.prisms) if (pr.over > 0 && pr.over < 1 / 60) seen.over++;
+      if (g.hz.balls) { if (g.hz.balls.length) seen.ball++; for (const b of g.hz.balls) if (b.zapT > 2) seen.zap++; }
+      for (const e of g.enemies) if (e.type === 'shade') { seen.shade++; if (e.shriek !== undefined) seen.shriek++; }
+      if (wasDim && g.hz.dim === false) seen.dawn++;
+      wasDim = !!g.hz.dim;
     },
   });
   const key = { azure: 'comet', verdant: 'pod', crystal: 'refr', ember: 'flare', storm: 'arc', hollow: 'rift', tidal: 'flow', corona: 'dark' }[sec.id];
@@ -272,6 +281,11 @@ for (const sec of SECTORS) {
   if (sec.id === 'ember') check(seen.wave > 0, `ember: fire waves roll out (${seen.wave})`);
   if (sec.id === 'verdant') check(seen.creep > 0, `verdant: pods creep (${seen.creep})`);
   if (sec.id === 'azure') check(seen.volley > 0, `azure: comet volleys (${seen.volley})`);
+  if (sec.id === 'hollow') check(seen.collapse > 0, `hollow: rifts collapse and reopen (${seen.collapse})`);
+  if (sec.id === 'hollow') check(seen.debris > 0 && seen.swallowed > 0, `hollow: debris drifts in and is swallowed (${seen.debris}/${seen.swallowed})`);
+  if (sec.id === 'crystal') check(seen.over > 0, `crystal: prisms overcharge (${seen.over})`);
+  if (sec.id === 'storm') check(seen.ball > 0 && seen.zap > 0, `storm: ball lightning roams and zaps (${seen.ball}/${seen.zap})`);
+  if (sec.id === 'corona') check(seen.shade > 0 && seen.dawn > 0, `corona: shades stalk and dawn breaks (${seen.shade}/${seen.dawn})`);
   check(g.wave > n0 + 1, `${sec.id}: waves still clear (${Math.round(r.seconds)}s)`);
   check(r.peak.bullets <= 900 && r.peak.zones <= 400 && r.peak.projs <= 1400, `${sec.id}: counts bounded (${JSON.stringify(r.peak)})`);
 }
@@ -308,7 +322,10 @@ console.log('mortal run');
 // ---------------------------------------------------------------- balance survey (optional)
 if (balanceN) {
   console.log(`balance survey over ${balanceN} seeds (bot is a weak player)`);
+  // --shard i/n runs only every n-th seed, so a survey can be split across processes
+  const [si, sn] = args.includes('--shard') ? args[args.indexOf('--shard') + 1].split('/').map(Number) : [0, 1];
   for (let s = 0; s < balanceN; s++) {
+    if (s % sn !== si) continue;
     const g = newGame({ seed: 100 + s * 17 });
     const marks = {};
     const r = run(g, { maxSeconds: 3000, onFrame: (g) => { if (!marks[g.wave]) marks[g.wave] = { t: Math.round(g.time), lvl: g.level }; } });

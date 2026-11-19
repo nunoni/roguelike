@@ -2,12 +2,14 @@
 // waves (never in boss fights). Each one is a threat and an opportunity:
 // comets, flares and tesla arcs hit enemies too, prisms split your hearts,
 // rifts and currents push the swarm around as much as they push you.
+// Second layers: rifts collapse, prisms overcharge, ball lightning roams the
+// storm, and shades stalk the Corona's dark.
 
 import { ARENA, COL, WAVES_PER_SECTOR } from '../config.js';
 import { TAU, clamp, damp } from '../core/math.js';
-import { DEFS, spawnEnemy } from './enemies.js';
+import { DEFS, spawnEnemy, steer } from './enemies.js';
 import { spawnProj } from './weapons.js';
-import { igniteEnemy } from './status.js';
+import { igniteEnemy, chillEnemy } from './status.js';
 
 const active = (g) => g.waves.state === 'active' && !g.waves.boss;
 /** 0..3 within a sector: hazards ramp up as the sector goes on. */
@@ -46,7 +48,7 @@ export function resetHazards(g) {
     for (let i = 0; i < n; i++) {
       let s = farSpot(g, 320, 900, 220);
       for (let tries = 0; tries < 8 && hz.prisms.some((o) => Math.hypot(o.x - s.x, o.y - s.y) < 420); tries++) s = farSpot(g, 320, 1100, 220);
-      hz.prisms.push({ x: s.x, y: s.y, r: 34, rot: g.rng.angle(), hit: 0, flareT: 3 + i * 1.3, charge: 0 });
+      hz.prisms.push({ x: s.x, y: s.y, r: 34, rot: g.rng.angle(), hit: 0, flareT: 3 + i * 1.3, charge: 0, load: i * 8, over: 0 });
     }
   } else if (id === 'storm') {
     hz.pylons = [];
@@ -55,23 +57,28 @@ export function resetHazards(g) {
       const s = farSpot(g, 200, 800, 300);
       hz.pylons.push({ x: s.x, y: s.y, ang: g.rng.angle(), spin: g.rng.sign() * 0.22, half: g.rng.range(260, 340), timer: 2.5 + i * 1.4, arc: null, glow: 0 });
     }
+    hz.balls = [];
+    hz.ballT = k === 0 ? 8 : 4;
   } else if (id === 'hollow') {
     hz.rifts = [];
-    const n = k >= 2 ? 2 : 1;
+    const n = 1 + (k >= 1 ? 1 : 0) + (k >= 3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const s = farSpot(g, 500, 900, 260);
-      hz.rifts.push({ x: s.x, y: s.y, vx: 0, vy: 0, R: 430, core: 44, wob: g.rng.angle(), tick: 0 });
+      hz.rifts.push({ x: s.x, y: s.y, vx: 0, vy: 0, R: 430, core: 44, wob: g.rng.angle(), tick: 0, colT: 7 + i * 3.5, inh: 0, eat: 0, open: 1 });
     }
+    hz.debris = [];
+    hz.debT = 0.5;
   } else if (id === 'tidal') {
     hz.flowA = hz.flowTo = g.rng.angle();
     hz.flowK = 0;
     hz.turnT = 10;
     hz.pools = [];
-    hz.poolT = k === 0 ? 6 : 3.5;
+    hz.poolT = k === 0 ? 4 : 2.5;
   } else if (id === 'corona') {
-    hz.dimT = 5;               // seconds until the first dimming
+    hz.dimT = 3.5;             // seconds until the first dimming
     hz.dim = false;
     hz.darkK = 0;
+    hz.shadeT = 1;
   }
 }
 
@@ -86,10 +93,10 @@ export function updateHazards(g, dt) {
     case 'verdant': pods(g, hz, dt); break;
     case 'crystal': prisms(g, hz, dt); break;
     case 'ember': flares(g, hz, dt); fireWaves(g, hz, dt); break;
-    case 'storm': pylons(g, hz, dt); break;
-    case 'hollow': rifts(g, hz, dt); break;
+    case 'storm': pylons(g, hz, dt); lightningBalls(g, hz, dt); break;
+    case 'hollow': rifts(g, hz, dt); debris(g, hz, dt); break;
     case 'tidal': currents(g, hz, dt); break;
-    case 'corona': dimming(g, hz, dt); break;
+    case 'corona': dimming(g, hz, dt); shades(g, hz, dt); break;
   }
 }
 
@@ -105,11 +112,11 @@ function comets(g, hz, dt) {
   hz.timer -= dt;
   if (hz.timer > 0) return;
   // the first wave gets a lone comet now and then; later waves get volleys
-  hz.timer = (first ? 8.5 : 6.2 - 0.5 * k) + g.rng.range(-0.6, 0.6);
+  hz.timer = (first ? 6 : 4.4 - 0.4 * k) + g.rng.range(-0.5, 0.5);
   const p = g.player, a = g.rng.angle();
   const cx = p.x + p.vx * 0.6, cy = p.y + p.vy * 0.6;
   const nx = Math.cos(a + Math.PI / 2), ny = Math.sin(a + Math.PI / 2);
-  const n = first ? 1 : k >= 3 ? 3 : k >= 1 ? 2 : 1;
+  const n = first ? 1 : k >= 2 ? 3 : 2;
   if (n === 1) {
     const off = g.rng.range(-140, 140);
     comet(g, cx + nx * off, cy + ny * off, a, 0);
@@ -128,12 +135,12 @@ function comets(g, hz, dt) {
 
 // ------------------------------------------------------------------ Verdant Rift: spore pods
 function pods(g, hz, dt) {
-  const k = stage(g), want = 3 + Math.min(2, k);
+  const k = stage(g), want = 5 + Math.min(3, k);
   let n = 0;
   for (const e of g.enemies) if (!e.dead && e.type === 'pod') n++;
   hz.timer -= dt;
   if (n < want && hz.timer <= 0) {
-    hz.timer = 3.2;
+    hz.timer = 2;
     const s = farSpot(g, 420, 850);
     spawnEnemy(g, 'pod', s.x, s.y, { spawn: 0.8 });
   }
@@ -161,8 +168,16 @@ function prisms(g, hz, dt) {
     // the prism gathers light, then flares it out as three rays
     pr.flareT -= dt;
     pr.charge = clamp(1 - pr.flareT, 0, 1);
+    // light it drinks (time, and every heart it splits) builds to an overcharge
+    if (pr.over > 0) {
+      pr.over -= dt;
+      if (pr.over <= 0) overcharge(g, pr);
+    } else {
+      pr.load += dt * 1.6;
+      if (pr.load >= 32) { pr.over = 1.1; pr.load = 0; g.audio.play('charge'); }
+    }
     if (pr.flareT <= 0) {
-      pr.flareT = 5.6 - 0.4 * k + g.rng.range(-0.5, 0.5);
+      pr.flareT = 4.2 - 0.35 * k + g.rng.range(-0.5, 0.5);
       for (let i = 0; i < 3; i++) {
         const l = g.addLaser({ x: pr.x, y: pr.y, ang: pr.rot + (i / 3) * TAU, len: 660, w: 24, warn: 0.85, dur: 0.35, hurts: 5, kind: 'prism', col: COL.ice });
         l.hazard = true;
@@ -191,6 +206,7 @@ function prisms(g, hz, dt) {
       }
       if (d2 > rr * rr) continue;
       q.refr = true;
+      if (pr.over <= 0) pr.load += 1;
       q.dmg *= 1.2;
       q.life = Math.max(q.life, 0.5);
       for (const s of [-0.38, 0.38]) {
@@ -222,13 +238,28 @@ function prisms(g, hz, dt) {
   }
 }
 
+/** A frost nova: freezes and hurts the swarm around the prism, but throws crystal shards at everyone. */
+function overcharge(g, pr) {
+  const R = 300;
+  for (const e of g.grid.query(pr.x, pr.y, R, [])) {
+    if (e.dead || e.def.hazard || Math.hypot(e.x - pr.x, e.y - pr.y) > R + e.r) continue;
+    chillEnemy(g, e, 1);
+  }
+  g.explode(pr.x, pr.y, R, g.stats.damage * 6, { col: COL.ice });
+  g.ringBullets(pr.x, pr.y, 12 + 2 * stage(g), 240, pr.rot, { r: 9, kind: 'shard' });
+  g.fx.ring(pr.x, pr.y, COL.ice, pr.r, R, 0.45, 5);
+  g.fx.burst(pr.x, pr.y, COL.white, 30, 900, 0.5, 4);
+  g.fx.shake(7);
+  g.audio.play('freeze');
+}
+
 // ------------------------------------------------------------------ Ember Reach: solar flares
 function flares(g, hz, dt) {
   const k = stage(g);
   hz.timer -= dt;
   if (hz.timer > 0) return;
-  hz.timer = 6.6 - 0.5 * k + g.rng.range(-0.5, 0.5);
-  const p = g.player, n = 3 + (k >= 2 ? 1 : 0);
+  hz.timer = 5.5 - 0.4 * k + g.rng.range(-0.5, 0.5);
+  const p = g.player, n = 3 + (k >= 1 ? 1 : 0) + (k >= 3 ? 1 : 0);
   for (let i = 0; i < n; i++) {
     const a = g.rng.angle(), d = i === 0 ? g.rng.range(0, 60) : g.rng.range(150, 380);
     const x = clamp(p.x + p.vx * 0.5 + Math.cos(a) * d, -ARENA.hw + 60, ARENA.hw - 60);
@@ -283,7 +314,7 @@ function pylons(g, hz, dt) {
     py.bx = py.x + Math.cos(py.ang) * py.half; py.by = py.y + Math.sin(py.ang) * py.half;
     py.timer -= dt;
     if (py.timer <= 0 && (!py.arc || py.arc.dead)) {
-      py.timer = 4.3 - 0.3 * stage(g) + g.rng.range(-0.4, 0.4);
+      py.timer = 3.7 - 0.25 * stage(g) + g.rng.range(-0.4, 0.4);
       py.arc = g.addLaser({ x: ax, y: ay, ang: py.ang, len: py.half * 2, w: 22, warn: 1.0, dur: 0.6, hurts: 4, kind: 'arc', col: COL.cyan });
       py.arc.hazard = true;
       py.arc.free = true;
@@ -297,19 +328,73 @@ function pylons(g, hz, dt) {
   }
 }
 
+/** Ball lightning: drifts after you and discharges into everything around it every couple of seconds. */
+function lightningBalls(g, hz, dt) {
+  const k = stage(g), p = g.player;
+  hz.ballT -= dt;
+  if (hz.ballT <= 0 && hz.balls.length < 1 + (k >= 2 ? 1 : 0)) {
+    hz.ballT = 7 - 0.5 * k + g.rng.range(-0.8, 0.8);
+    const s = farSpot(g, 450, 750);
+    hz.balls.push({ x: s.x, y: s.y, vx: 0, vy: 0, life: 16, t: 0, zapT: 2.4, charge: 0, R: 150 + 10 * k, wob: g.rng.angle() });
+    g.audio.play('zap');
+  }
+  for (const b of hz.balls) {
+    b.t += dt; b.life -= dt; b.wob += dt;
+    const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy) || 1;
+    b.vx = damp(b.vx, (dx / d) * 85 + Math.cos(b.wob * 1.7) * 55, 1.2, dt);
+    b.vy = damp(b.vy, (dy / d) * 85 + Math.sin(b.wob * 1.3) * 55, 1.2, dt);
+    b.x = clamp(b.x + b.vx * dt, -ARENA.hw + 80, ARENA.hw - 80);
+    b.y = clamp(b.y + b.vy * dt, -ARENA.hh + 80, ARENA.hh - 80);
+    b.zapT -= dt;
+    b.charge = clamp(1 - b.zapT / 0.8, 0, 1);
+    if (b.zapT <= 0) {
+      b.zapT = 2.4 - 0.15 * k;
+      if (!p.dead && d < b.R + p.r * 0.5) { g.fx.lightning(b.x, b.y, p.x, p.y, COL.cyan); g.hurtPlayer(1, b.x, b.y); }
+      let n = 0;
+      for (const e of g.grid.query(b.x, b.y, b.R, [])) {
+        if (n >= 6 || e.dead || e.def.hazard || Math.hypot(e.x - b.x, e.y - b.y) > b.R + e.r) continue;
+        g.damageEnemy(e, g.stats.damage * 4, { quiet: true });
+        g.fx.lightning(b.x, b.y, e.x, e.y, COL.cyan);
+        n++;
+      }
+      g.fx.ring(b.x, b.y, COL.cyan, 20, b.R, 0.25, 3);
+      g.audio.play('zap');
+    }
+    if (b.life <= 0) { b.dead = true; g.fx.burst(b.x, b.y, COL.cyan, 16, 400, 0.4, 3); }
+  }
+  hz.balls = hz.balls.filter((b) => !b.dead);
+}
+
 // ------------------------------------------------------------------ The Hollow: rifts
 function rifts(g, hz, dt) {
   const p = g.player;
+  const k = stage(g);
   for (const rf of hz.rifts) {
     rf.wob += dt * 0.4;
+    rf.open = Math.min(1, rf.open + dt * 0.7);
+    // now and then a rift stops, inhales hard, implodes and opens somewhere else
+    if (rf.inh > 0) {
+      rf.inh -= dt;
+      if (rf.inh <= 0) { collapse(g, rf); continue; }
+    } else {
+      rf.colT -= dt;
+      if (rf.colT <= 0) {
+        rf.inh = 1.6;
+        rf.colT = 10 - 0.8 * k + g.rng.range(-1, 1);
+        g.zones.push({ kind: 'blast', x: rf.x, y: rf.y, r: 190, t: 0, dur: 1.6, tick: 0, harm: 10, fall: true });
+        g.audio.play('charge');
+      }
+    }
     const dx = p.x - rf.x, dy = p.y - rf.y, d = Math.hypot(dx, dy) || 1;
-    rf.vx = damp(rf.vx, (dx / d) * 38 + Math.cos(rf.wob) * 30, 1, dt);
-    rf.vy = damp(rf.vy, (dy / d) * 38 + Math.sin(rf.wob * 1.3) * 30, 1, dt);
-    rf.x = clamp(rf.x + rf.vx * dt, -ARENA.hw + 150, ARENA.hw - 150);
-    rf.y = clamp(rf.y + rf.vy * dt, -ARENA.hh + 150, ARENA.hh - 150);
-    const R = rf.R;
+    if (rf.inh <= 0) {
+      rf.vx = damp(rf.vx, (dx / d) * 38 + Math.cos(rf.wob) * 30, 1, dt);
+      rf.vy = damp(rf.vy, (dy / d) * 38 + Math.sin(rf.wob * 1.3) * 30, 1, dt);
+      rf.x = clamp(rf.x + rf.vx * dt, -ARENA.hw + 150, ARENA.hw - 150);
+      rf.y = clamp(rf.y + rf.vy * dt, -ARENA.hh + 150, ARENA.hh - 150);
+    }
+    const R = rf.R * rf.open, pk = rf.inh > 0 ? 2.2 : 1;
     if (d < R && !p.dead) {
-      const f = 1 - d / R;
+      const f = (1 - d / R) * pk;
       p.pullX -= (dx / d) * 175 * f; p.pullY -= (dy / d) * 175 * f;
       if (d < rf.core + p.r * 0.6) g.hurtPlayer(1, rf.x, rf.y);
     }
@@ -320,7 +405,7 @@ function rifts(g, hz, dt) {
       if (e.dead || e.boss) continue;
       const ex = rf.x - e.x, ey = rf.y - e.y, ed = Math.hypot(ex, ey) || 1;
       if (ed > R) continue;
-      if (!e.def.heavy) { const f = 150 * (1 - ed / R) * dt; e.x += (ex / ed) * Math.min(f, ed); e.y += (ey / ed) * Math.min(f, ed); }
+      if (!e.def.heavy) { const f = 150 * pk * (1 - ed / R) * dt; e.x += (ex / ed) * Math.min(f, ed); e.y += (ey / ed) * Math.min(f, ed); }
       if (tick && ed < rf.core + e.r) g.damageEnemy(e, g.stats.damage * 1.5, { quiet: true });   // the rift crushes what it swallows
     }
     for (const b of g.bullets) {
@@ -328,7 +413,7 @@ function rifts(g, hz, dt) {
       const bx = rf.x - b.x, by = rf.y - b.y, bd2 = bx * bx + by * by;
       if (bd2 > R * R) continue;
       const bd = Math.sqrt(bd2) || 1;
-      if (bd < rf.core) { b.dead = true; continue; }
+      if (bd < rf.core) { b.dead = true; rf.eat++; continue; }
       const f = 300 * (1 - bd / R) * dt;
       b.vx += (bx / bd) * f; b.vy += (by / bd) * f;
       b.ang = Math.atan2(b.vy, b.vx);
@@ -340,13 +425,64 @@ function rifts(g, hz, dt) {
   }
 }
 
+/** The rift implodes: it spits back what it swallowed and reopens elsewhere. */
+function collapse(g, rf) {
+  g.ringBullets(rf.x, rf.y, clamp(8 + rf.eat, 8, 22), 230, g.rng.angle(), { r: 9 });
+  g.fx.ring(rf.x, rf.y, COL.violet, rf.core, rf.R * 0.6, 0.4, 4);
+  g.fx.burst(rf.x, rf.y, COL.hot, 26, 700, 0.5, 4);
+  rf.eat = 0;
+  for (const d of g.hz.debris || []) {           // the blast flings nearby debris back out
+    const dx = d.x - rf.x, dy = d.y - rf.y, dd = Math.hypot(dx, dy) || 1;
+    if (dd < rf.R) { const f = 520 * (1 - dd / rf.R) + 180; d.vx = (dx / dd) * f; d.vy = (dy / dd) * f; }
+  }
+  const s = farSpot(g, 450, 900, 260);
+  rf.x = s.x; rf.y = s.y; rf.vx = rf.vy = 0; rf.open = 0;
+}
+
+/** Debris: rocks drift in from the dark and spiral into the nearest rift. Touching one hurts. */
+function debris(g, hz, dt) {
+  const k = stage(g), p = g.player;
+  if (!hz.rifts.length) return;
+  hz.debT -= dt;
+  if (hz.debT <= 0 && hz.debris.length < 10 + 3 * k) {
+    hz.debT = 0.9 - 0.1 * k;
+    const rf = g.rng.pick(hz.rifts), a = g.rng.angle(), d = rf.R * g.rng.range(1.2, 1.6), spin = g.rng.sign();
+    const x = clamp(rf.x + Math.cos(a) * d, -ARENA.hw + 30, ARENA.hw - 30), y = clamp(rf.y + Math.sin(a) * d, -ARENA.hh + 30, ARENA.hh - 30);
+    const v = g.rng.range(90, 150);          // a sideways start, so they spiral in rather than fall straight
+    hz.debris.push({ x, y, vx: -Math.sin(a) * v * spin, vy: Math.cos(a) * v * spin, r: g.rng.range(10, 20), rot: g.rng.angle(), spin: g.rng.range(-3, 3), sides: g.rng.int(5, 7), t: 0 });
+  }
+  for (const d of hz.debris) {
+    d.t += dt; d.rot += d.spin * dt;
+    let near = null, nd = 1e9;
+    for (const rf of hz.rifts) { const q = Math.hypot(rf.x - d.x, rf.y - d.y); if (q < nd) { nd = q; near = rf; } }
+    const dx = near.x - d.x, dy = near.y - d.y, dd = nd || 1;
+    const pull = (90 + 320 * clamp(1 - dd / (near.R * 1.7), 0, 1)) * (near.open ?? 1) * (near.inh > 0 ? 2.2 : 1);
+    d.vx += (dx / dd) * pull * dt; d.vy += (dy / dd) * pull * dt;
+    const sp = Math.hypot(d.vx, d.vy), cap = 520;
+    if (sp > cap) { d.vx *= cap / sp; d.vy *= cap / sp; }
+    d.x += d.vx * dt; d.y += d.vy * dt;
+    if (dd < near.core * 0.85) {                 // swallowed
+      d.dead = true;
+      g.fx.burst(d.x, d.y, COL.violet, 6, 160, 0.3, 2);
+      continue;
+    }
+    if (d.t > 24 || Math.abs(d.x) > ARENA.hw + 200 || Math.abs(d.y) > ARENA.hh + 200) { d.dead = true; continue; }
+    if (!p.dead && Math.hypot(p.x - d.x, p.y - d.y) < d.r + p.r * 0.7) {
+      d.dead = true;
+      g.hurtPlayer(1, d.x, d.y);
+      g.fx.burst(d.x, d.y, COL.ghost, 12, 300, 0.4, 3);
+    }
+  }
+  hz.debris = hz.debris.filter((d) => !d.dead);
+}
+
 // ------------------------------------------------------------------ Tidal Nebula: currents and whirlpools
 // The tide only moves you: the swarm swims against it untouched.
 function currents(g, hz, dt) {
   const k = stage(g), p = g.player;
   hz.turnT -= dt;
   if (hz.turnT <= 0) {
-    hz.turnT = 11 - 0.8 * k;
+    hz.turnT = 9 - 0.8 * k;
     hz.flowTo = hz.flowA + g.rng.sign() * g.rng.range(1.2, 2.6);
     g.fx.text(p.x, p.y - 60, 'THE CURRENT TURNS', COL.teal, 13, 1.2);
     g.audio.play('telegraph');
@@ -360,8 +496,8 @@ function currents(g, hz, dt) {
 
   // whirlpools open near you, drag you around their rim, then burst
   hz.poolT -= dt;
-  if (hz.poolT <= 0 && hz.pools.length < 1 + (k >= 2 ? 1 : 0)) {
-    hz.poolT = 7 - 0.6 * k + g.rng.range(-0.8, 0.8);
+  if (hz.poolT <= 0 && hz.pools.length < 2 + (k >= 2 ? 1 : 0)) {
+    hz.poolT = 4.8 - 0.5 * k + g.rng.range(-0.6, 0.6);
     const a = g.rng.angle(), dd = g.rng.range(60, 200);
     const x = clamp(p.x + p.vx * 0.8 + Math.cos(a) * dd, -ARENA.hw + 140, ARENA.hw - 140);
     const y = clamp(p.y + p.vy * 0.8 + Math.sin(a) * dd, -ARENA.hh + 140, ARENA.hh - 140);
@@ -395,10 +531,56 @@ function dimming(g, hz, dt) {
   hz.dimT -= dt;
   if (hz.dimT <= 0) {
     hz.dim = !hz.dim;
-    hz.dimT = hz.dim ? 8 + stage(g) * 0.6 : 6.5 - stage(g) * 0.6;
+    hz.dimT = hz.dim ? 9 + stage(g) * 0.6 : 5 - stage(g) * 0.6;
     if (hz.dim) { g.fx.text(g.player.x, g.player.y - 60, 'THE LIGHT FAILS', COL.gold, 13, 1.2); g.audio.play('telegraph'); }
+    else dawn(g);
   }
   fadeDark(g, hz, dt, !hz.dim);
+}
+
+/** Light returns in a flash: the swarm near you is dazzled (frozen) and the shades burn away. */
+function dawn(g) {
+  const p = g.player;
+  for (const e of g.enemies) {
+    if (e.dead || e.boss) continue;
+    if (e.type === 'shade') { g.killEnemy(e); continue; }
+    if (Math.hypot(e.x - p.x, e.y - p.y) < 650) chillEnemy(g, e, 1);
+  }
+  g.fx.ring(p.x, p.y, COL.gold, 40, 650, 0.5, 5);
+  g.fx.text(p.x, p.y - 60, 'DAWN', COL.gold, 14, 1);
+}
+
+/** In the dark, shades gather outside your light. */
+function shades(g, hz, dt) {
+  const k = stage(g), p = g.player;
+  if (!hz.dim || hz.darkK < 0.5 || !g.dark) return;
+  let n = 0;
+  for (const e of g.enemies) if (!e.dead && e.type === 'shade') n++;
+  hz.shadeT -= dt;
+  if (hz.shadeT <= 0 && n < 3 + k) {
+    hz.shadeT = 1.6 - 0.2 * k;
+    const a = g.rng.angle(), d = g.dark.r + 240;
+    const x = clamp(p.x + Math.cos(a) * d, -ARENA.hw + 60, ARENA.hw - 60), y = clamp(p.y + Math.sin(a) * d, -ARENA.hh + 60, ARENA.hh - 60);
+    spawnEnemy(g, 'shade', x, y, { spawn: 0.3 });
+  }
+}
+
+/** A shade creeps in; once it reaches your light it shrieks and bursts into bullets. */
+function aiShade(g, e, dt) {
+  const p = g.player, dk = g.dark;
+  if (e.shriek !== undefined) {
+    e.shriek += dt;
+    e.vx = e.vy = 0;
+    if (e.shriek > 0.55) {
+      g.ringBullets(e.x, e.y, 10, 190, g.rng.angle(), { r: 8 });
+      g.fx.burst(e.x, e.y, COL.red, 14, 300, 0.4, 3);
+      g.killEnemy(e, true);
+    }
+    return;
+  }
+  if (!dk || Math.hypot(e.x - dk.x, e.y - dk.y) < dk.r * 0.6) { e.shriek = 0; g.audio.play('telegraph'); return; }
+  steer(e, p.x, p.y, e.speed, 3, dt);
+  e.rot = Math.atan2(e.vy, e.vx);
 }
 
 function fadeDark(g, hz, dt, out) {
@@ -411,6 +593,10 @@ function fadeDark(g, hz, dt, out) {
 
 // ------------------------------------------------------------------ registration
 Object.assign(DEFS, {
+  shade: {
+    hp: 20, speed: 150, r: 16, xp: 2, threat: 0, col: 'ghost', ai: aiShade, hazard: true,
+    noCharm: true, noElite: true, noSep: true, score: 60,
+  },
   pod: {
     hp: 22, speed: 0, r: 24, xp: 7, threat: 0, col: 'lime', ai: aiPod, hazard: true, contact: false,
     noMove: true, noSep: true, noCharm: true, noElite: true, heavy: true, score: 120,

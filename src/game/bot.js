@@ -111,6 +111,22 @@ export function botInput(g) {
     const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy) || 1;
     if (d > w.r && d - w.r < 90) { fx += (dx / d) * 2.5; fy += (dy / d) * 2.5; }
   }
+  if (hz && hz.debris) for (const d of hz.debris) {              // dodge debris like bullets
+    const dx = p.x - d.x, dy = p.y - d.y, dd = Math.hypot(dx, dy) || 1;
+    if (dd < 150) {
+      const w = (150 - dd) / 150, s = Math.sign(d.vx * dy - d.vy * dx) || 1, l = Math.hypot(d.vx, d.vy) || 1;
+      fx += (-d.vy / l) * s * w * 2.6 + (dx / dd) * w; fy += (d.vx / l) * s * w * 2.6 + (dy / dd) * w;
+      if (dd < 60) danger++;
+    }
+  }
+  if (hz && hz.balls) for (const b of hz.balls) {                // keep clear of ball lightning
+    const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy) || 1;
+    if (d < b.R + 60) { const k = 2 + 4 * b.charge; fx += (dx / d) * k; fy += (dy / d) * k; }
+  }
+  if (hz && hz.prisms) for (const pr of hz.prisms) if (pr.over > 0) {   // a prism about to overcharge
+    const dx = p.x - pr.x, dy = p.y - pr.y, d = Math.hypot(dx, dy) || 1;
+    if (d < 380) { fx += (dx / d) * 3; fy += (dy / d) * 3; }
+  }
   if (hz && hz.pools) for (const w of hz.pools) {                // swim out of a whirlpool before it bursts
     const dx = p.x - w.x, dy = p.y - w.y, d = Math.hypot(dx, dy) || 1;
     if (d < w.r * 1.3) { const k = 1.5 + 2.5 * (w.t / w.dur); fx += (dx / d) * k; fy += (dy / d) * k; }

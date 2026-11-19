@@ -15,6 +15,14 @@ export const UNLOCK = [
 ];
 const ELITES = ['swift', 'armored', 'volatile', 'regen', 'blink', 'frenzied'];
 
+/** Enemy HP multiplier for wave n: quadratic through the run, steeper past wave 12,
+ *  then compounding every endless wave. */
+export function hpScaleAt(n) {
+  const w = n - 1;
+  return (1 + 0.22 * w + 0.064 * w * w) * (1 + 0.03 * Math.max(0, Math.min(n, FINAL_WAVE) - 12))
+    * (n > FINAL_WAVE ? Math.pow(1.3, n - FINAL_WAVE) : 1);
+}
+
 export class Waves {
   constructor(g) {
     this.g = g;
@@ -50,16 +58,18 @@ export class Waves {
     this.vacuum = false;
     this.spawnT = 0.6;
     const w = n - 1;
-    this.hpScale = (1 + 0.22 * w + 0.056 * w * w) * (1 + 0.022 * Math.max(0, Math.min(n, FINAL_WAVE) - 12))
-      * (n > FINAL_WAVE ? Math.pow(1.25, n - FINAL_WAVE) : 1);
-    this.spdScale = 1 + Math.min(0.35, 0.012 * w) + (n > FINAL_WAVE ? Math.min(0.4, 0.02 * (n - FINAL_WAVE)) : 0);
+    this.hpScale = hpScaleAt(n);
+    this.spdScale = 1 + Math.min(0.35, 0.012 * w) + (n > FINAL_WAVE ? Math.min(0.5, 0.025 * (n - FINAL_WAVE)) : 0);
     this.boss = n % WAVES_PER_SECTOR === 0;
     const sector = g.sector;
     resetHazards(g);
 
     if (this.boss) {
       const idx = n / WAVES_PER_SECTOR - 1;
-      this.bossScale = Math.pow(2.6, Math.floor(idx / ROUTE_TIERS.length));
+      // endless bosses grow with the waves around them: a boss met again at wave n
+      // is as much tougher as the swarm has grown since its first appearance
+      this.bossScale = idx < ROUTE_TIERS.length ? 1
+        : 1.2 * hpScaleAt(n) / hpScaleAt((idx % ROUTE_TIERS.length + 1) * WAVES_PER_SECTOR);
       const b = spawnBoss(g, idx);
       this.budget = 0;
       this.cap = 5 + n * 1.15;

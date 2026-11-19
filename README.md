@@ -55,10 +55,10 @@ Later waves also get smarter rather than just tougher: from wave 12 Drifters sta
 | Tier | Sector options | Hazard |
 |---|---|---|
 | 1 | Azure Drift | **Comets** streak across the arena in crosses and showers, and hit enemies too |
-| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** creep after you and burst into clouds of spores up close (shoot them for XP) / **Prisms** pull in your hearts and split them into three charged ones (enemy bullets split too), and flare rays of light |
-| 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and send rings of fire rolling slowly outward (jump them or dash through); they burn enemies too / **Tesla pylons** arc lightning that shocks everything between them |
-| 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in / **Currents** drag only you (the swarm swims free) and keep turning; **whirlpools** pull you round and burst |
-| 5 | Black Corona | **Dimming**: the light fails more often than not, and you only see a small circle around you |
+| 2 | Verdant Rift / *Crystal Cascade* | **Spore pods** creep after you and burst into clouds of spores up close (shoot them for XP) / **Prisms** pull in your hearts and split them into three charged ones (enemy bullets split too), and flare rays of light; every heart they split charges them toward an **overcharge**, a frost nova that freezes and hurts nearby enemies but throws crystal shards at you |
+| 3 | Ember Reach / *Static Storm* | **Solar flares** scorch the ground and send rings of fire rolling slowly outward (jump them or dash through); they burn enemies too / **Tesla pylons** arc lightning that shocks everything between them, and **ball lightning** drifts after you, discharging into everything around it every couple of seconds |
+| 4 | The Hollow / *Tidal Nebula* | **Rifts** drag you, enemies and bullets in, and every so often **collapse**: they inhale hard, implode (crushing what they caught), spit back the bullets they swallowed and reopen elsewhere / **Currents** drag only you (the swarm swims free) and keep turning; **whirlpools** pull you round and burst |
+| 5 | Black Corona | **Dimming**: the light fails more often than not, and you only see a small circle around you. **Shades** stalk you in the dark and shriek into a ring of bullets when they reach your light (shoot them first); when the light returns, **dawn** freezes the swarm around you and burns the shades away |
 
 Hazards pause during boss fights.
 
